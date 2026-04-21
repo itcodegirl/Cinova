@@ -1162,6 +1162,9 @@
 
 		const IMG_BASE = 'https://image.tmdb.org/t/p/';
 		const API_BASE = 'https://api.themoviedb.org/3';
+		const REQUEST_TIMEOUT_MS = Number(globalThis.__TMDB_TIMEOUT_MS__) > 0
+			? Number(globalThis.__TMDB_TIMEOUT_MS__)
+			: 10000;
 		const setupErrorEl = document.getElementById('setupError');
 		const setupInputEl = document.getElementById('apiKeyInput');
 
@@ -1229,13 +1232,26 @@
 		async function tmdbFetch(endpoint, params = {}) {
 			const url = new URL(`${API_BASE}${endpoint}`);
 			Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+			let res;
 
-			const res = await fetch(url, {
-				headers: {
-					'Authorization': `Bearer ${API_TOKEN}`,
-					'Content-Type': 'application/json'
+			try {
+				res = await fetch(url, {
+					headers: {
+						'Authorization': `Bearer ${API_TOKEN}`,
+						'Content-Type': 'application/json'
+					},
+					signal: controller.signal
+				});
+			} catch (error) {
+				if (error && error.name === 'AbortError') {
+					throw new Error('TMDB request timed out');
 				}
-			});
+				throw new Error('Network error while contacting TMDB');
+			} finally {
+				clearTimeout(timeoutId);
+			}
 
 			if (!res.ok) throw new Error(`TMDB Error: ${res.status}`);
 			return res.json();

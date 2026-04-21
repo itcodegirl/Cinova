@@ -35,3 +35,43 @@ test('keeps setup overlay open when stored token is invalid', async ({ page }) =
   await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
   await expect(page.locator('#apiKeyInput')).toHaveValue('bad-token');
 });
+
+test('shows setup error when network fails after entering token', async ({ page }) => {
+  await page.route('https://api.themoviedb.org/3/**', route => route.abort('failed'));
+
+  await page.addInitScript(() => {
+    localStorage.removeItem('screenscout_token');
+  });
+
+  await page.goto(appUrl);
+  await page.locator('#apiKeyInput').fill('offline-token');
+  await page.locator('#setupOverlay button').click();
+
+  await expect(page.locator('#setupOverlay')).toBeVisible();
+  await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
+  await expect(page.locator('#apiKeyInput')).toHaveValue('offline-token');
+});
+
+test('shows setup error when tmdb requests time out', async ({ page }) => {
+  await page.route('https://api.themoviedb.org/3/**', async route => {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ genres: [] })
+    });
+  });
+
+  await page.addInitScript(() => {
+    localStorage.removeItem('screenscout_token');
+    window.__TMDB_TIMEOUT_MS__ = 50;
+  });
+
+  await page.goto(appUrl);
+  await page.locator('#apiKeyInput').fill('slow-token');
+  await page.locator('#setupOverlay button').click();
+
+  await expect(page.locator('#setupOverlay')).toBeVisible();
+  await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
+  await expect(page.locator('#apiKeyInput')).toHaveValue('slow-token');
+});
