@@ -5,7 +5,9 @@
   "description": "Cinova static TMDB browser checks",
   "scripts": {
     "dev": "node scripts/dev.js",
+    "dev:lan": "node scripts/dev.js --host 0.0.0.0",
     "preview": "node scripts/preview.js",
+    "preview:lan": "node scripts/preview.js --host 0.0.0.0",
     "check": "node scripts/check.js",
     "check:encoding": "node scripts/check-encoding.js",
     "lint": "npm run check",

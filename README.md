@@ -19,6 +19,16 @@ npm run dev
 This starts the local preview server and opens the app in your browser.
 Set `NO_OPEN=1` to skip auto-open.
 
+LAN/mobile testing:
+
+```bash
+npm run dev:lan
+```
+
+Optional host/port overrides:
+- env vars: `HOST=0.0.0.0 PORT=5000 npm run dev`
+- CLI flags: `npm run dev -- --host 0.0.0.0 --port 5000`
+
 The app flow is:
 1. Enter TMDB Read Access Token in setup overlay
 2. App validates token and loads genres
@@ -53,7 +63,9 @@ Useful subsets:
 
 ## Available Scripts
 - `npm run dev`: run preview server and auto-open `http://localhost:4173`
-- `npm run preview`: run local static preview server at `http://localhost:4173`
+- `npm run dev:lan`: run preview server on `0.0.0.0` for LAN/mobile testing (prints LAN URLs)
+- `npm run preview`: run local static preview server at `http://127.0.0.1:4173`
+- `npm run preview:lan`: run local static preview server on `0.0.0.0` (prints LAN URLs)
 - `npm run check`: custom static quality checks for `index.html`
 - `npm run check:encoding`: standalone UTF-8 encoding and mojibake guard
 - `npm run lint`: alias to `npm run check`

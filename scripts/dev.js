@@ -1,8 +1,45 @@
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 
-const port = Number(process.env.PORT) > 0 ? Number(process.env.PORT) : 4173;
-const url = `http://localhost:${port}`;
+function parseCliArgs(args) {
+  let host;
+  let port;
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i].startsWith('--host=')) {
+      host = args[i].slice('--host='.length);
+      continue;
+    }
+    if (args[i].startsWith('--port=')) {
+      port = Number(args[i].slice('--port='.length));
+      continue;
+    }
+    if (args[i] === '--host' && args[i + 1]) {
+      host = args[i + 1];
+      i += 1;
+      continue;
+    }
+    if (args[i] === '--port' && args[i + 1]) {
+      port = Number(args[i + 1]);
+      i += 1;
+    }
+  }
+  return { host, port };
+}
+
+function getConfig() {
+  const cli = parseCliArgs(process.argv.slice(2));
+  const host = cli.host || process.env.HOST || '127.0.0.1';
+  const parsedPort = Number.isFinite(cli.port) && cli.port > 0 ? cli.port : Number(process.env.PORT);
+  const port = parsedPort > 0 ? parsedPort : 4173;
+  return { host, port };
+}
+
+function getBrowserHost(host) {
+  return host === '0.0.0.0' || host === '::' ? 'localhost' : host;
+}
+
+const { host, port } = getConfig();
+const url = `http://${getBrowserHost(host)}:${port}`;
 
 function openBrowser(targetUrl) {
   if (process.env.NO_OPEN === '1') {
@@ -32,10 +69,11 @@ function openBrowser(targetUrl) {
 }
 
 const previewScriptPath = path.resolve(__dirname, 'preview.js');
-const previewProcess = spawn(process.execPath, [previewScriptPath], {
+const previewProcess = spawn(process.execPath, [previewScriptPath, '--host', host, '--port', String(port)], {
   stdio: 'inherit',
   env: {
     ...process.env,
+    HOST: host,
     PORT: String(port)
   }
 });
