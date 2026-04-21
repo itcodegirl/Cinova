@@ -29,6 +29,8 @@ assert(duplicateIds.length === 0, `Duplicate id attributes found: ${duplicateIds
 const requiredIds = [
   'setupOverlay',
   'apiKeyInput',
+  'setupSubmitBtn',
+  'setupRetryBtn',
   'heroSection',
   'heroInfo',
   'mainContent',

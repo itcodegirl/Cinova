@@ -1001,6 +1001,29 @@
 			background: #d42e44;
 		}
 
+		.setup-box button:disabled {
+			opacity: 0.75;
+			cursor: not-allowed;
+		}
+
+		.setup-actions {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.setup-box button.setup-retry {
+			background: transparent;
+			border: 1px solid var(--border-light);
+			color: var(--text-secondary);
+		}
+
+		.setup-box button.setup-retry:hover {
+			background: var(--bg-card);
+			border-color: var(--accent);
+			color: var(--text-primary);
+		}
+
 		.setup-steps {
 			text-align: left;
 			background: var(--bg-card);
@@ -1092,7 +1115,10 @@
 			<input type="password" id="apiKeyInput" placeholder="Paste your TMDB API Read Access Token..."
 				onkeydown="if(event.key==='Enter') saveKey()">
 			<div id="setupError" style="display:none; margin-top:-4px; margin-bottom: 12px; color: var(--accent); font-size: 13px;"></div>
-			<button onclick="saveKey()">Start Browsing →</button>
+			<div class="setup-actions">
+				<button type="button" id="setupSubmitBtn" onclick="saveKey()">Start Browsing →</button>
+				<button type="button" id="setupRetryBtn" class="setup-retry" style="display:none;" onclick="retrySetup()">Retry Connection</button>
+			</div>
 		</div>
 	</div>
 
@@ -1167,6 +1193,9 @@
 			: 10000;
 		const setupErrorEl = document.getElementById('setupError');
 		const setupInputEl = document.getElementById('apiKeyInput');
+		const setupSubmitBtn = document.getElementById('setupSubmitBtn');
+		const setupRetryBtn = document.getElementById('setupRetryBtn');
+		let isInitializing = false;
 
 		function escapeHtml(value) {
 			return String(value ?? '')
@@ -1184,11 +1213,26 @@
 		function showSetupError(message) {
 			setupErrorEl.textContent = message;
 			setupErrorEl.style.display = 'block';
+			if (API_TOKEN) {
+				setupRetryBtn.style.display = 'block';
+				setupRetryBtn.disabled = false;
+			}
 		}
 
 		function hideSetupError() {
 			setupErrorEl.textContent = '';
 			setupErrorEl.style.display = 'none';
+			setupRetryBtn.style.display = 'none';
+			setupRetryBtn.disabled = true;
+		}
+
+		function setSetupLoading(loading) {
+			setupSubmitBtn.disabled = loading;
+			setupRetryBtn.disabled = loading || !API_TOKEN;
+			setupSubmitBtn.textContent = loading ? 'Connecting...' : 'Start Browsing →';
+			if (setupRetryBtn.style.display !== 'none') {
+				setupRetryBtn.textContent = loading ? 'Retrying...' : 'Retry Connection';
+			}
 		}
 
 		// ══════════════════════════════════════════
@@ -1199,6 +1243,7 @@
 		}
 
 		function saveKey() {
+			if (isInitializing) return;
 			const key = document.getElementById('apiKeyInput').value.trim();
 			if (!key) {
 				showSetupError('Please enter your TMDB API token.');
@@ -1209,7 +1254,16 @@
 			init();
 		}
 
+		function retrySetup() {
+			if (!API_TOKEN || isInitializing) return;
+			setupInputEl.value = API_TOKEN;
+			init();
+		}
+
 		async function init() {
+			if (isInitializing) return;
+			isInitializing = true;
+			setSetupLoading(true);
 			hideSetupError();
 			try {
 				await loadGenres();
@@ -1223,6 +1277,9 @@
 				showSetupError('Could not connect to TMDB. Check your token and internet connection.');
 				document.getElementById('setupOverlay').style.display = 'flex';
 				setupInputEl.value = API_TOKEN;
+			} finally {
+				isInitializing = false;
+				setSetupLoading(false);
 			}
 		}
 
