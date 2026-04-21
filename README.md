@@ -23,6 +23,13 @@ npm test
 Useful subsets:
 - `npm run test:smoke`
 - `npm run test:a11y`
+- `npm run test:setup`
+- `npm run test:resilience`
+
+Runtime resilience highlights:
+- setup overlay has a built-in retry action for transient TMDB failures
+- TMDB `429` responses use bounded retry/backoff with `Retry-After` support
+- hero, section, and search areas show inline retry actions on transient fetch errors
 
 ## CI
 GitHub Actions runs the same check on each push and pull request via `.github/workflows/checks.yml`.

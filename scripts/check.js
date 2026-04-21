@@ -49,6 +49,17 @@ assert(/<nav[^>]*aria-label="[^"]+"/.test(html), 'Expected nav to include an ari
 assert(/<input[^>]*id="searchInput"[^>]*aria-label="[^"]+"/.test(html), 'Expected #searchInput to include an aria-label.');
 assert(/<div[^>]*id="modalContent"[^>]*role="dialog"[^>]*aria-modal="true"/.test(html), 'Expected #modalContent to have dialog semantics.');
 
+const blankTargetLinks = [...html.matchAll(/<a\b[^>]*target="_blank"[^>]*>/g)].map(match => match[0]);
+for (const linkTag of blankTargetLinks) {
+  const relValueMatch = linkTag.match(/\brel="([^"]+)"/);
+  assert(Boolean(relValueMatch), `Expected target=\"_blank\" link to include rel attribute: ${linkTag}`);
+  if (relValueMatch) {
+    const relValue = relValueMatch[1];
+    assert(/\bnoopener\b/.test(relValue), `Expected rel to include noopener for external link: ${linkTag}`);
+    assert(/\bnoreferrer\b/.test(relValue), `Expected rel to include noreferrer for external link: ${linkTag}`);
+  }
+}
+
 const scriptRegex = /<script>([\s\S]*?)<\/script>/g;
 const scriptBlocks = [...html.matchAll(scriptRegex)];
 assert(scriptBlocks.length > 0, 'No inline <script> blocks found.');

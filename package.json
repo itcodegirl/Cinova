@@ -9,6 +9,8 @@
     "test": "playwright test",
     "test:smoke": "playwright test tests/smoke.spec.js",
     "test:a11y": "playwright test tests/a11y.spec.js",
+    "test:setup": "playwright test tests/setup.spec.js",
+    "test:resilience": "playwright test tests/resilience.spec.js",
     "ci": "npm run check && npm test"
   },
   "devDependencies": {
