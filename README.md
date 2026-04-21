@@ -1,5 +1,5 @@
 # Cinova
-Cinova (ScreenScout) is a movie and TV show browser powered by the TMDB (The Movie Database) API.
+Cinova is a movie and TV show browser powered by the TMDB (The Movie Database) API.
 
 ## Stack & Entry Point
 - Runtime: static HTML/CSS/vanilla JavaScript

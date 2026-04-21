@@ -8,7 +8,7 @@ const appUrl = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
 test.beforeEach(async ({ page }) => {
   await mockTmdb(page);
   await page.addInitScript(() => {
-    localStorage.setItem('screenscout_token', 'test-token');
+    localStorage.setItem('cinova_tmdb_token', 'test-token');
   });
   await page.goto(appUrl);
 });
@@ -55,3 +55,4 @@ test('persists watchlist after reload and allows removing saved item', async ({ 
   await page.locator('.movie-grid .card-watchlist.saved').first().click();
   await expect(page.getByText('Your watchlist is empty')).toBeVisible();
 });
+

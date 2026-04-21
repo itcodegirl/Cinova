@@ -7,7 +7,7 @@ const appUrl = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
 
 test('shows validation error when setup token is empty', async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.removeItem('screenscout_token');
+    localStorage.removeItem('cinova_tmdb_token');
   });
 
   await page.goto(appUrl);
@@ -27,7 +27,7 @@ test('keeps setup overlay open when stored token is invalid', async ({ page }) =
   );
 
   await page.addInitScript(() => {
-    localStorage.setItem('screenscout_token', 'bad-token');
+    localStorage.setItem('cinova_tmdb_token', 'bad-token');
   });
 
   await page.goto(appUrl);
@@ -41,7 +41,7 @@ test('shows setup error when network fails after entering token', async ({ page 
   await page.route('https://api.themoviedb.org/3/**', route => route.abort('failed'));
 
   await page.addInitScript(() => {
-    localStorage.removeItem('screenscout_token');
+    localStorage.removeItem('cinova_tmdb_token');
   });
 
   await page.goto(appUrl);
@@ -65,7 +65,7 @@ test('shows setup error when tmdb requests time out', async ({ page }) => {
   });
 
   await page.addInitScript(() => {
-    localStorage.removeItem('screenscout_token');
+    localStorage.removeItem('cinova_tmdb_token');
     window.__TMDB_TIMEOUT_MS__ = 50;
   });
 
@@ -135,7 +135,7 @@ test('retries setup successfully after a transient failure', async ({ page }) =>
   });
 
   await page.addInitScript(() => {
-    localStorage.removeItem('screenscout_token');
+    localStorage.removeItem('cinova_tmdb_token');
   });
 
   await page.goto(appUrl);
@@ -205,7 +205,7 @@ test('automatically recovers from transient tmdb 429 during setup', async ({ pag
   });
 
   await page.addInitScript(() => {
-    localStorage.removeItem('screenscout_token');
+    localStorage.removeItem('cinova_tmdb_token');
     window.__TMDB_RETRY_DELAY_MS__ = 10;
   });
 
@@ -246,7 +246,7 @@ test('shows setup error when tmdb 429 retries are exhausted', async ({ page }) =
   });
 
   await page.addInitScript(() => {
-    localStorage.removeItem('screenscout_token');
+    localStorage.removeItem('cinova_tmdb_token');
     window.__TMDB_MAX_RETRIES__ = 1;
     window.__TMDB_RETRY_DELAY_MS__ = 10;
   });
@@ -266,8 +266,8 @@ test('ignores corrupted watchlist storage and still initializes', async ({ page 
 
   await mockTmdb(page);
   await page.addInitScript(() => {
-    localStorage.setItem('screenscout_token', 'test-token');
-    localStorage.setItem('screenscout_watchlist', '{"broken":');
+    localStorage.setItem('cinova_tmdb_token', 'test-token');
+    localStorage.setItem('cinova_watchlist', '{"broken":');
   });
 
   await page.goto(appUrl);
@@ -276,3 +276,4 @@ test('ignores corrupted watchlist storage and still initializes', async ({ page 
   await expect(page.locator('#watchlistCount')).toHaveText('0');
   expect(pageErrors).toEqual([]);
 });
+

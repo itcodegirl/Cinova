@@ -16,7 +16,7 @@ function describeViolations(violations) {
 test('has no serious or critical accessibility violations', async ({ page }) => {
   await mockTmdb(page);
   await page.addInitScript(() => {
-    localStorage.setItem('screenscout_token', 'test-token');
+    localStorage.setItem('cinova_tmdb_token', 'test-token');
   });
 
   await page.goto(appUrl);
@@ -28,3 +28,4 @@ test('has no serious or critical accessibility violations', async ({ page }) => 
   const impactfulViolations = results.violations.filter(v => ['serious', 'critical'].includes(v.impact));
   expect(impactfulViolations, describeViolations(impactfulViolations)).toEqual([]);
 });
+

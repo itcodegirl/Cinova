@@ -76,7 +76,7 @@ function defaultApiResponse(route, apiPath, pageNumber = 1) {
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('screenscout_token', 'test-token');
+    localStorage.setItem('cinova_tmdb_token', 'test-token');
   });
 });
 
@@ -200,7 +200,7 @@ test('falls back when API returns unsafe poster paths', async ({ page }) => {
   });
 
   await page.addInitScript(() => {
-    localStorage.setItem('screenscout_token', 'test-token');
+    localStorage.setItem('cinova_tmdb_token', 'test-token');
     window.__xssFlag = 0;
   });
 
@@ -217,3 +217,4 @@ test('falls back when API returns unsafe poster paths', async ({ page }) => {
   const xssFlag = await page.evaluate(() => window.__xssFlag);
   expect(xssFlag).toBe(0);
 });
+

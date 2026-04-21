@@ -1207,7 +1207,7 @@
 	<div class="setup-overlay" id="setupOverlay">
 		<div class="setup-box">
 			<div class="setup-icon">🎬</div>
-			<h1>Welcome to Screen<em style="color:var(--accent); font-style:italic;">Scout</em></h1>
+			<h1>Welcome to Cino<em style="color:var(--accent); font-style:italic;">va</em></h1>
 			<p>Discover movies and TV shows powered by TMDB. Enter your free API key to get started.</p>
 			<div class="setup-steps">
 				<p>1️⃣ Go to <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener noreferrer">themoviedb.org/signup</a> and create a
@@ -1236,7 +1236,7 @@
 						d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
 				</svg>
 			</div>
-			<span class="nav-logo-text">Screen<em>Scout</em></span>
+			<span class="nav-logo-text">Cino<em>va</em></span>
 		</a>
 
 		<div class="nav-center">
@@ -1350,13 +1350,19 @@
 			return normalized;
 		}
 
-		let API_TOKEN = getStorageItem('screenscout_token', '');
+		let API_TOKEN = getStorageItem('cinova_tmdb_token', getStorageItem('screenscout_token', ''));
 		let currentType = 'movie'; // 'movie' or 'tv'
 		let currentPage = 1;
 		let currentQuery = '';
 		let searchTotalPages = 1;
-		let watchlist = parseStoredWatchlist(getStorageItem('screenscout_watchlist', '[]'));
+		let watchlist = parseStoredWatchlist(getStorageItem('cinova_watchlist', getStorageItem('screenscout_watchlist', '[]')));
 		let genreMap = {};
+		if (API_TOKEN && !getStorageItem('cinova_tmdb_token', '')) {
+			setStorageItem('cinova_tmdb_token', API_TOKEN);
+		}
+		if (!getStorageItem('cinova_watchlist', '') && watchlist.length > 0) {
+			setStorageItem('cinova_watchlist', JSON.stringify(watchlist));
+		}
 
 		const IMG_BASE = 'https://image.tmdb.org/t/p/';
 		const API_BASE = 'https://api.themoviedb.org/3';
@@ -1551,7 +1557,7 @@
 				return;
 			}
 			API_TOKEN = key;
-			setStorageItem('screenscout_token', key);
+			setStorageItem('cinova_tmdb_token', key);
 			init();
 		}
 
@@ -2041,7 +2047,7 @@
 				btn.classList.add('saved');
 				btn.textContent = '♥';
 			}
-			setStorageItem('screenscout_watchlist', JSON.stringify(watchlist));
+			setStorageItem('cinova_watchlist', JSON.stringify(watchlist));
 			updateWatchlistCount();
 		}
 
@@ -2101,7 +2107,7 @@
 
 		function removeFromWatchlist(id) {
 			watchlist = watchlist.filter(w => w.id !== id);
-			setStorageItem('screenscout_watchlist', JSON.stringify(watchlist));
+			setStorageItem('cinova_watchlist', JSON.stringify(watchlist));
 			updateWatchlistCount();
 			showWatchlist();
 		}

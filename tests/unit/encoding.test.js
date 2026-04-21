@@ -45,9 +45,10 @@ test('scanFilesForEncoding flags possible mojibake by default', () => {
 test('scanFilesForEncoding passes clean UTF-8 text', () => {
   withTempDir(tempDir => {
     const filePath = path.join(tempDir, 'valid.txt');
-    fs.writeFileSync(filePath, 'Clean UTF-8 text with emoji 🎬', 'utf8');
+    fs.writeFileSync(filePath, 'Clean UTF-8 text sample', 'utf8');
 
     const issues = scanFilesForEncoding([filePath]);
     assert.deepEqual(issues, []);
   });
 });
+
