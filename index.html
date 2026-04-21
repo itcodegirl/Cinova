@@ -1071,6 +1071,7 @@
 			</div>
 			<input type="password" id="apiKeyInput" placeholder="Paste your TMDB API Read Access Token..."
 				onkeydown="if(event.key==='Enter') saveKey()">
+			<div id="setupError" style="display:none; margin-top:-4px; margin-bottom: 12px; color: var(--accent); font-size: 13px;"></div>
 			<button onclick="saveKey()">Start Browsing →</button>
 		</div>
 	</div>
@@ -1135,34 +1136,71 @@
 		let currentType = 'movie'; // 'movie' or 'tv'
 		let currentPage = 1;
 		let currentQuery = '';
+		let searchTotalPages = 1;
 		let watchlist = JSON.parse(localStorage.getItem('screenscout_watchlist') || '[]');
 		let genreMap = {};
 
 		const IMG_BASE = 'https://image.tmdb.org/t/p/';
 		const API_BASE = 'https://api.themoviedb.org/3';
+		const setupErrorEl = document.getElementById('setupError');
+		const setupInputEl = document.getElementById('apiKeyInput');
+
+		function escapeHtml(value) {
+			return String(value ?? '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;');
+		}
+
+		function escapeJsString(value) {
+			return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+		}
+
+		function showSetupError(message) {
+			setupErrorEl.textContent = message;
+			setupErrorEl.style.display = 'block';
+		}
+
+		function hideSetupError() {
+			setupErrorEl.textContent = '';
+			setupErrorEl.style.display = 'none';
+		}
 
 		// ══════════════════════════════════════════
 		// INIT
 		// ══════════════════════════════════════════
 		if (API_TOKEN) {
-			document.getElementById('setupOverlay').style.display = 'none';
 			init();
 		}
 
 		function saveKey() {
 			const key = document.getElementById('apiKeyInput').value.trim();
-			if (!key) return;
+			if (!key) {
+				showSetupError('Please enter your TMDB API token.');
+				return;
+			}
 			API_TOKEN = key;
 			localStorage.setItem('screenscout_token', key);
-			document.getElementById('setupOverlay').style.display = 'none';
 			init();
 		}
 
 		async function init() {
-			await loadGenres();
-			loadHero();
-			loadSections();
-			updateWatchlistCount();
+			hideSetupError();
+			try {
+				await loadGenres();
+				loadHero();
+				loadSections();
+				updateWatchlistCount();
+				document.getElementById('setupOverlay').style.display = 'none';
+				setupInputEl.value = '';
+			} catch (e) {
+				console.error('Initialization failed:', e);
+				showSetupError('Could not connect to TMDB. Check your token and internet connection.');
+				document.getElementById('setupOverlay').style.display = 'flex';
+				setupInputEl.value = API_TOKEN;
+			}
 		}
 
 		// ══════════════════════════════════════════
@@ -1187,17 +1225,13 @@
 		// GENRES
 		// ══════════════════════════════════════════
 		async function loadGenres() {
-			try {
-				const [movieGenres, tvGenres] = await Promise.all([
-					tmdbFetch('/genre/movie/list'),
-					tmdbFetch('/genre/tv/list')
-				]);
-				[...movieGenres.genres, ...tvGenres.genres].forEach(g => {
-					genreMap[g.id] = g.name;
-				});
-			} catch (e) {
-				console.error('Failed to load genres:', e);
-			}
+			const [movieGenres, tvGenres] = await Promise.all([
+				tmdbFetch('/genre/movie/list'),
+				tmdbFetch('/genre/tv/list')
+			]);
+			[...movieGenres.genres, ...tvGenres.genres].forEach(g => {
+				genreMap[g.id] = g.name;
+			});
 		}
 
 		function getGenreNames(ids) {
@@ -1222,15 +1256,15 @@
 
 				document.getElementById('heroInfo').innerHTML = `
                     <div class="hero-badge">🔥 Trending This Week</div>
-                    <h1 class="hero-title">${title}</h1>
-                    <p class="hero-overview">${featured.overview}</p>
+                    <h1 class="hero-title">${escapeHtml(title)}</h1>
+                    <p class="hero-overview">${escapeHtml(featured.overview)}</p>
                     <div class="hero-meta">
                         <div class="hero-rating">
                             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            ${featured.vote_average.toFixed(1)}
+                            ${typeof featured.vote_average === 'number' ? featured.vote_average.toFixed(1) : 'N/A'}
                         </div>
                         <span class="hero-date">${year}</span>
-                        <span class="hero-genre">${getGenreNames(featured.genre_ids)}</span>
+                        <span class="hero-genre">${escapeHtml(getGenreNames(featured.genre_ids))}</span>
                         <button class="hero-btn" onclick="openDetail(${featured.id}, '${currentType}')">
                             View Details →
                         </button>
@@ -1320,23 +1354,24 @@
 					query: currentQuery,
 					page: currentPage
 				});
+				searchTotalPages = Number.isInteger(data?.total_pages) ? data.total_pages : 1;
 
 				const filtered = data.results.filter(r => r.media_type === 'movie' || r.media_type === 'tv');
 
 				main.innerHTML = `
                     <div class="section" style="margin-top: 32px;">
                         <div class="section-header">
-                            <h2 class="section-title">Results for "<span>${currentQuery}</span>"</h2>
+                            <h2 class="section-title">Results for "<span>${escapeHtml(currentQuery)}</span>"</h2>
                             <span class="section-link">${data.total_results} found</span>
                         </div>
                         <div class="movie-grid">
                             ${filtered.length ? filtered.map((item, i) => createCard(item, i)).join('') : '<p style="color:var(--text-muted); grid-column: 1/-1; text-align:center; padding: 40px;">No results found. Try a different search.</p>'}
                         </div>
-                        ${data.total_pages > 1 ? createPagination(data.page, data.total_pages) : ''}
+						${data.total_pages > 1 ? createPagination(data.page, data.total_pages) : ''}
                     </div>
                 `;
 			} catch (e) {
-				main.innerHTML = `<p style="color:var(--accent); text-align:center; padding:60px;">Error: ${e.message}</p>`;
+				main.innerHTML = `<p style="color:var(--accent); text-align:center; padding:60px;">Error: ${escapeHtml(e.message)}</p>`;
 			}
 		}
 
@@ -1345,32 +1380,36 @@
 		// ══════════════════════════════════════════
 		function createCard(item, index) {
 			const title = item.title || item.name;
+			const safeTitle = escapeHtml(title);
 			const date = item.release_date || item.first_air_date || '';
 			const year = date ? new Date(date).getFullYear() : '';
 			const type = item.media_type || currentType;
+			const safeType = escapeJsString(type);
+			const safeTitleJs = escapeJsString(title);
+			const safePosterPath = escapeJsString(item.poster_path || '');
 			const isSaved = watchlist.some(w => w.id === item.id);
 			const poster = item.poster_path
-				? `<img src="${IMG_BASE}w342${item.poster_path}" alt="${title}" loading="lazy">`
+				? `<img src="${IMG_BASE}w342${item.poster_path}" alt="${safeTitle}" loading="lazy">`
 				: `<div class="no-poster">🎬</div>`;
 
 			return `
-                <div class="movie-card" style="animation-delay: ${index * 0.05}s" onclick="openDetail(${item.id}, '${type}')">
+                <div class="movie-card" style="animation-delay: ${index * 0.05}s" onclick="openDetail(${item.id}, '${safeType}')">
                     <div class="card-poster">
                         ${poster}
                         ${item.vote_average ? `
                         <div class="card-rating">
                             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                            ${item.vote_average.toFixed(1)}
+                            ${typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : 'N/A'}
                         </div>` : ''}
-                        <button class="card-watchlist ${isSaved ? 'saved' : ''}" onclick="event.stopPropagation(); toggleWatchlist(${item.id}, '${type}', '${title.replace(/'/g, "\\'")}', '${item.poster_path || ''}', this)">
+                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" onclick="event.stopPropagation(); toggleWatchlist(${item.id}, '${safeType}', '${safeTitleJs}', '${safePosterPath}', this)">
                             ${isSaved ? '♥' : '♡'}
                         </button>
                     </div>
                     <div class="card-info">
-                        <div class="card-title">${title}</div>
+                        <div class="card-title">${safeTitle}</div>
                         <div class="card-meta">
                             <span>${year}</span>
-                            <span>${getGenreNames(item.genre_ids)}</span>
+                            <span>${escapeHtml(getGenreNames(item.genre_ids))}</span>
                         </div>
                     </div>
                 </div>
@@ -1395,12 +1434,12 @@
 					tmdbFetch(`/${type}/${id}/videos`)
 				]);
 
-				const title = detail.title || detail.name;
+				const title = escapeHtml(detail.title || detail.name);
 				const date = detail.release_date || detail.first_air_date || '';
 				const year = date ? new Date(date).getFullYear() : '';
 				const runtime = detail.runtime ? `${Math.floor(detail.runtime / 60)}h ${detail.runtime % 60}m` : '';
 				const seasons = detail.number_of_seasons ? `${detail.number_of_seasons} Season${detail.number_of_seasons > 1 ? 's' : ''}` : '';
-				const genres = (detail.genres || []).map(g => `<span class="modal-tag">${g.name}</span>`).join('');
+				const genres = (detail.genres || []).map(g => `<span class="modal-tag">${escapeHtml(g.name)}</span>`).join('');
 				const trailers = (videos.results || []).filter(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')).slice(0, 2);
 				const cast = (credits.cast || []).slice(0, 10);
 
@@ -1419,14 +1458,14 @@
                             ${detail.vote_average ? `
                             <span class="modal-rating">
                                 <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                ${detail.vote_average.toFixed(1)} / 10
+                                ${typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : 'N/A'} / 10
                             </span>` : ''}
                             ${year ? `<span class="modal-tag">${year}</span>` : ''}
                             ${runtime ? `<span class="modal-tag">${runtime}</span>` : ''}
-                            ${seasons ? `<span class="modal-tag">${seasons}</span>` : ''}
+                            ${seasons ? `<span class="modal-tag">${escapeHtml(seasons)}</span>` : ''}
                             ${genres}
                         </div>
-                        <p class="modal-overview">${detail.overview || 'No overview available.'}</p>
+                        <p class="modal-overview">${escapeHtml(detail.overview || 'No overview available.')}</p>
 
                         ${cast.length ? `
                         <h3 class="modal-section-title">Cast</h3>
@@ -1435,12 +1474,12 @@
                                 <div class="cast-card">
                                     <div class="cast-photo">
                                         ${c.profile_path
-						? `<img src="${IMG_BASE}w185${c.profile_path}" alt="${c.name}">`
+						? `<img src="${IMG_BASE}w185${c.profile_path}" alt="${escapeHtml(c.name)}">`
 						: `<div class="no-photo">👤</div>`
 					}
                                     </div>
-                                    <div class="cast-name">${c.name}</div>
-                                    <div class="cast-character">${c.character || c.roles?.[0]?.character || ''}</div>
+                                    <div class="cast-name">${escapeHtml(c.name)}</div>
+                                    <div class="cast-character">${escapeHtml(c.character || c.roles?.[0]?.character || '')}</div>
                                 </div>
                             `).join('')}
                         </div>` : ''}
@@ -1457,7 +1496,7 @@
                     </div>
                 `;
 			} catch (e) {
-				modal.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${e.message}</p><button class="modal-close" onclick="closeModal()" style="position:relative; margin-top:16px;">✕ Close</button></div>`;
+				modal.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" onclick="closeModal()" style="position:relative; margin-top:16px;">✕ Close</button></div>`;
 			}
 		}
 
@@ -1513,16 +1552,16 @@
                     </div>
                     <div class="movie-grid">
                         ${watchlist.map((item, i) => `
-                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" onclick="openDetail(${item.id}, '${item.type}')">
+                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" onclick="openDetail(${item.id}, '${escapeJsString(item.type)}')">
                                 <div class="card-poster">
                                     ${item.poster
-					? `<img src="${IMG_BASE}w342${item.poster}" alt="${item.title}" loading="lazy">`
+					? `<img src="${IMG_BASE}w342${item.poster}" alt="${escapeHtml(item.title)}" loading="lazy">`
 					: `<div class="no-poster">🎬</div>`
 				}
                                     <button class="card-watchlist saved" onclick="event.stopPropagation(); removeFromWatchlist(${item.id})">♥</button>
                                 </div>
                                 <div class="card-info">
-                                    <div class="card-title">${item.title}</div>
+                                    <div class="card-title">${escapeHtml(item.title)}</div>
                                     <div class="card-meta"><span>${item.type === 'tv' ? 'TV Show' : 'Movie'}</span></div>
                                 </div>
                             </div>
@@ -1543,22 +1582,42 @@
 		// PAGINATION
 		// ══════════════════════════════════════════
 		function createPagination(current, total) {
-			const maxPages = Math.min(total, 10);
+			const safeCurrent = Number(current) || 1;
+			const safeTotal = Math.max(1, Number(total) || 1);
+			const maxPageButtons = 10;
+			const startPage = Math.max(1, Math.min(safeCurrent - 4, safeTotal - maxPageButtons + 1));
+			const endPage = Math.min(safeTotal, startPage + maxPageButtons - 1);
 			let buttons = '';
 
-			buttons += `<button class="page-btn" onclick="goToPage(${current - 1})" ${current <= 1 ? 'disabled' : ''}>‹</button>`;
+			buttons += `<button class="page-btn" onclick="goToPage(${safeCurrent - 1})" ${safeCurrent <= 1 ? 'disabled' : ''}>‹</button>`;
 
-			for (let i = 1; i <= maxPages; i++) {
-				buttons += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+			if (startPage > 1) {
+				buttons += `<button class="page-btn ${1 === safeCurrent ? 'active' : ''}" onclick="goToPage(1)">1</button>`;
+				if (startPage > 2) {
+					buttons += `<button class="page-btn" disabled>…</button>`;
+				}
 			}
 
-			buttons += `<button class="page-btn" onclick="goToPage(${current + 1})" ${current >= maxPages ? 'disabled' : ''}>›</button>`;
+			for (let i = startPage; i <= endPage; i++) {
+				buttons += `<button class="page-btn ${i === safeCurrent ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+			}
+
+			if (endPage < safeTotal) {
+				if (endPage < safeTotal - 1) {
+					buttons += `<button class="page-btn" disabled>…</button>`;
+				}
+				buttons += `<button class="page-btn ${safeTotal === safeCurrent ? 'active' : ''}" onclick="goToPage(${safeTotal})">${safeTotal}</button>`;
+			}
+
+			buttons += `<button class="page-btn" onclick="goToPage(${safeCurrent + 1})" ${safeCurrent >= safeTotal ? 'disabled' : ''}>›</button>`;
 
 			return `<div class="pagination">${buttons}</div>`;
 		}
 
 		function goToPage(page) {
-			currentPage = page;
+			const nextPage = Math.floor(Number(page));
+			if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage > searchTotalPages || nextPage === currentPage) return;
+			currentPage = nextPage;
 			performSearch();
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}
