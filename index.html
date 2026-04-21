@@ -13,6 +13,44 @@
 		href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap"
 		rel="stylesheet">
 	<style>
+		.sr-only {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		.skip-link {
+			position: fixed;
+			top: 8px;
+			left: 8px;
+			z-index: 1000;
+			padding: 10px 14px;
+			border-radius: var(--radius-sm);
+			background: var(--accent);
+			color: #fff;
+			text-decoration: none;
+			font-weight: 600;
+			transform: translateY(-120%);
+			transition: transform var(--transition);
+		}
+
+		.skip-link:focus-visible {
+			transform: translateY(0);
+		}
+
+		a:focus-visible,
+		button:focus-visible,
+		input:focus-visible,
+		[role="button"]:focus-visible {
+			outline: 2px solid var(--accent);
+			outline-offset: 2px;
+		}
 		/* ════════════════════════════════════════
            CSS RESET & VARIABLES
            ════════════════════════════════════════ */
@@ -438,6 +476,12 @@
 			opacity: 0;
 		}
 
+		.movie-card:focus-visible {
+			border-radius: var(--radius-lg);
+			outline: 2px solid var(--accent);
+			outline-offset: 2px;
+		}
+
 		@keyframes cardIn {
 			from {
 				opacity: 0;
@@ -662,6 +706,10 @@
 			overflow-y: auto;
 			box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
 			animation: modalIn 0.35s ease;
+		}
+
+		.modal:focus {
+			outline: none;
 		}
 
 		@keyframes modalIn {
@@ -995,12 +1043,13 @@
 		}
 
 		.setup-box p a {
-			color: var(--accent);
-			text-decoration: none;
+			color: var(--text-primary);
+			text-decoration: underline;
+			text-underline-offset: 2px;
 		}
 
 		.setup-box p a:hover {
-			text-decoration: underline;
+			color: var(--accent);
 		}
 
 		.setup-box input {
@@ -1109,7 +1158,10 @@
 			}
 
 			.nav-tabs {
-				display: none;
+				display: flex;
+				overflow-x: auto;
+				white-space: nowrap;
+				padding-bottom: 4px;
 			}
 
 			.hero {
@@ -1149,6 +1201,7 @@
 </head>
 
 <body>
+	<a class="skip-link" href="#mainContent">Skip to main content</a>
 
 	<!-- ═══ API KEY SETUP ═══ -->
 	<div class="setup-overlay" id="setupOverlay">
@@ -1164,6 +1217,7 @@
 				<p>3️⃣ Copy your <strong style="color:var(--text-primary)">API Read Access Token</strong> (the long one)</p>
 				<p>4️⃣ Paste it below and start browsing!</p>
 			</div>
+			<label class="sr-only" for="apiKeyInput">TMDB API Read Access Token</label>
 			<input type="password" id="apiKeyInput" placeholder="Paste your TMDB API Read Access Token..."
 				onkeydown="if(event.key==='Enter') saveKey()">
 			<div id="setupError" role="alert" aria-live="assertive" style="display:none; margin-top:-4px; margin-bottom: 12px; color: var(--accent); font-size: 13px;"></div>
@@ -1187,16 +1241,17 @@
 		</a>
 
 		<div class="nav-center">
-			<div class="search-box" role="search" aria-label="Search movies and TV shows">
+			<form class="search-box" role="search" aria-label="Search movies and TV shows" onsubmit="event.preventDefault(); executeSearch();">
 				<svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 					stroke-width="2">
 					<circle cx="11" cy="11" r="8" />
 					<line x1="21" y1="21" x2="16.65" y2="16.65" />
 				</svg>
+				<label class="sr-only" for="searchInput">Search movies and TV shows</label>
 				<input type="text" id="searchInput" placeholder="Search movies & TV shows..." aria-label="Search movies and TV shows" oninput="handleSearch()"
 					onkeydown="if(event.key==='Enter') executeSearch()">
 				<button class="search-clear" id="searchClear" type="button" aria-label="Clear search" aria-hidden="true" disabled onclick="clearSearch()">✕</button>
-			</div>
+			</form>
 		</div>
 
 		<div class="nav-tabs">
@@ -1219,11 +1274,11 @@
 	</section>
 
 	<!-- ═══ MAIN ═══ -->
-	<main id="mainContent"></main>
+	<main id="mainContent" aria-live="polite" aria-busy="false"></main>
 
 	<!-- ═══ MODAL ═══ -->
 	<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeModal()">
-		<div class="modal" id="modalContent" role="dialog" aria-modal="true" aria-label="Title details"></div>
+		<div class="modal" id="modalContent" role="dialog" aria-modal="true" aria-label="Title details" tabindex="-1"></div>
 	</div>
 
 	<script>
@@ -1253,7 +1308,11 @@
 		const setupInputEl = document.getElementById('apiKeyInput');
 		const setupSubmitBtn = document.getElementById('setupSubmitBtn');
 		const setupRetryBtn = document.getElementById('setupRetryBtn');
+		const mainContentEl = document.getElementById('mainContent');
+		const modalOverlayEl = document.getElementById('modalOverlay');
+		const modalContentEl = document.getElementById('modalContent');
 		let isInitializing = false;
+		let modalPreviouslyFocusedEl = null;
 
 		function delay(ms) {
 			return new Promise(resolve => setTimeout(resolve, ms));
@@ -1270,6 +1329,15 @@
 
 		function escapeJsString(value) {
 			return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+		}
+
+		function setMainBusy(isBusy) {
+			mainContentEl.setAttribute('aria-busy', String(Boolean(isBusy)));
+		}
+
+		function getFocusableElements(container) {
+			return [...container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+				.filter(el => !el.hasAttribute('hidden') && el.offsetParent !== null);
 		}
 
 		function showSetupError(message) {
@@ -1487,8 +1555,8 @@
 		// SECTIONS
 		// ══════════════════════════════════════════
 		async function loadSections() {
-			const main = document.getElementById('mainContent');
-			main.innerHTML = '';
+			setMainBusy(true);
+			mainContentEl.innerHTML = '';
 
 			const sections = currentType === 'movie'
 				? [
@@ -1514,8 +1582,9 @@
 					console.error(`Failed to load ${section.title}:`, e);
 					sectionEl.innerHTML = renderSectionError(section.title, section.endpoint);
 				}
-				main.appendChild(sectionEl);
+				mainContentEl.appendChild(sectionEl);
 			}
+			setMainBusy(false);
 		}
 
 		async function retrySection(endpoint, title, triggerEl) {
@@ -1568,7 +1637,7 @@
 		}
 
 		async function performSearch() {
-			const main = document.getElementById('mainContent');
+			setMainBusy(true);
 			document.getElementById('heroSection').style.display = 'none';
 
 			try {
@@ -1580,7 +1649,7 @@
 
 				const filtered = data.results.filter(r => r.media_type === 'movie' || r.media_type === 'tv');
 
-				main.innerHTML = `
+				mainContentEl.innerHTML = `
                     <div class="section" style="margin-top: 32px;">
                         <div class="section-header">
                             <h2 class="section-title">Results for "<span>${escapeHtml(currentQuery)}</span>"</h2>
@@ -1593,7 +1662,7 @@
                     </div>
                 `;
 			} catch (e) {
-				main.innerHTML = `
+				mainContentEl.innerHTML = `
 					<div class="section" style="margin-top: 32px;">
 						<div class="section-header">
 							<h2 class="section-title">Results for "<span>${escapeHtml(currentQuery)}</span>"</h2>
@@ -1601,6 +1670,8 @@
 						${renderInlineError(`Search failed: ${e.message}`, 'Retry Search', 'retrySearch()')}
 					</div>
 				`;
+			} finally {
+				setMainBusy(false);
 			}
 		}
 
@@ -1654,13 +1725,42 @@
 		// ══════════════════════════════════════════
 		// DETAIL MODAL
 		// ══════════════════════════════════════════
-		async function openDetail(id, type) {
-			const overlay = document.getElementById('modalOverlay');
-			const modal = document.getElementById('modalContent');
-			overlay.classList.add('open');
-			document.body.style.overflow = 'hidden';
+		function focusModalContent() {
+			const focusableEls = getFocusableElements(modalContentEl);
+			if (focusableEls.length > 0) {
+				focusableEls[0].focus();
+			} else {
+				modalContentEl.focus();
+			}
+		}
 
-			modal.innerHTML = `<div style="padding:60px; text-align:center; color:var(--text-muted)">Loading...</div>`;
+		function trapModalFocus(event) {
+			if (!modalOverlayEl.classList.contains('open') || event.key !== 'Tab') return;
+			const focusableEls = getFocusableElements(modalContentEl);
+			if (focusableEls.length === 0) {
+				event.preventDefault();
+				modalContentEl.focus();
+				return;
+			}
+
+			const firstEl = focusableEls[0];
+			const lastEl = focusableEls[focusableEls.length - 1];
+			if (event.shiftKey && document.activeElement === firstEl) {
+				event.preventDefault();
+				lastEl.focus();
+			} else if (!event.shiftKey && document.activeElement === lastEl) {
+				event.preventDefault();
+				firstEl.focus();
+			}
+		}
+
+		async function openDetail(id, type) {
+			modalPreviouslyFocusedEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+			modalOverlayEl.classList.add('open');
+			document.body.style.overflow = 'hidden';
+			modalContentEl.setAttribute('aria-label', 'Loading title details');
+			modalContentEl.innerHTML = `<div style="padding:60px; text-align:center; color:var(--text-muted)">Loading...</div>`;
+			modalContentEl.focus();
 
 			try {
 				const [detail, credits, videos] = await Promise.all([
@@ -1669,7 +1769,8 @@
 					tmdbFetch(`/${type}/${id}/videos`)
 				]);
 
-				const title = escapeHtml(detail.title || detail.name);
+				const rawTitle = detail.title || detail.name || 'Title details';
+				const title = escapeHtml(rawTitle);
 				const date = detail.release_date || detail.first_air_date || '';
 				const year = date ? new Date(date).getFullYear() : '';
 				const runtime = detail.runtime ? `${Math.floor(detail.runtime / 60)}h ${detail.runtime % 60}m` : '';
@@ -1682,10 +1783,11 @@
 					? `<img src="${IMG_BASE}w1280${detail.backdrop_path}" alt="${title}">`
 					: `<div style="height:100%; background: var(--bg-card);"></div>`;
 
-				modal.innerHTML = `
+				modalContentEl.setAttribute('aria-label', `${rawTitle} details`);
+				modalContentEl.innerHTML = `
                     <div class="modal-backdrop">
                         ${backdropImg}
-                        <button class="modal-close" aria-label="Close details modal" onclick="closeModal()">✕</button>
+                        <button class="modal-close" aria-label="Close details modal" onclick="closeModal()">X</button>
                     </div>
                     <div class="modal-body">
                         <h1 class="modal-title">${title}</h1>
@@ -1730,17 +1832,23 @@
                         </div>` : ''}
                     </div>
                 `;
+				focusModalContent();
 			} catch (e) {
-				modal.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" aria-label="Close details modal" onclick="closeModal()" style="position:relative; margin-top:16px;">✕ Close</button></div>`;
+				modalContentEl.setAttribute('aria-label', 'Error loading title details');
+				modalContentEl.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" aria-label="Close details modal" onclick="closeModal()" style="position:relative; margin-top:16px;">X Close</button></div>`;
+				focusModalContent();
 			}
 		}
 
 		function closeModal() {
-			document.getElementById('modalOverlay').classList.remove('open');
+			modalOverlayEl.classList.remove('open');
 			document.body.style.overflow = '';
+			if (modalPreviouslyFocusedEl && document.contains(modalPreviouslyFocusedEl)) {
+				modalPreviouslyFocusedEl.focus();
+			}
+			modalPreviouslyFocusedEl = null;
 		}
 
-		// ══════════════════════════════════════════
 		// WATCHLIST
 		// ══════════════════════════════════════════
 		function toggleWatchlist(id, type, title, poster, btn) {
@@ -1765,21 +1873,22 @@
 		}
 
 		function showWatchlist() {
-			const main = document.getElementById('mainContent');
+			setMainBusy(true);
 			document.getElementById('heroSection').style.display = 'none';
 
 			if (watchlist.length === 0) {
-				main.innerHTML = `
+				mainContentEl.innerHTML = `
                     <div style="text-align:center; padding: 80px 20px;">
                         <div style="font-size:48px; margin-bottom:16px;">♡</div>
                         <h2 style="margin-bottom:8px;">Your watchlist is empty</h2>
                         <p style="color:var(--text-muted);">Click the heart on any movie or show to save it here.</p>
                     </div>
                 `;
+				setMainBusy(false);
 				return;
 			}
 
-			main.innerHTML = `
+			mainContentEl.innerHTML = `
                 <div class="section" style="margin-top: 32px;">
                     <div class="section-header">
                         <h2 class="section-title">My <span>Watchlist</span></h2>
@@ -1805,6 +1914,7 @@
                     </div>
                 </div>
             `;
+			setMainBusy(false);
 		}
 
 		function removeFromWatchlist(id) {
@@ -1849,7 +1959,6 @@
 
 			return `<div class="pagination">${buttons}</div>`;
 		}
-
 		function goToPage(page) {
 			const nextPage = Math.floor(Number(page));
 			if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage > searchTotalPages || nextPage === currentPage) return;
@@ -1888,9 +1997,16 @@
 
 		// Close modal on ESC
 		document.addEventListener('keydown', e => {
-			if (e.key === 'Escape') closeModal();
+			if (e.key === 'Escape' && modalOverlayEl.classList.contains('open')) {
+				closeModal();
+				return;
+			}
+			trapModalFocus(e);
 		});
 	</script>
 </body>
 
 </html>
+
+
+
