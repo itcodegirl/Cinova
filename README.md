@@ -1,6 +1,20 @@
 # Cinova
 Cinova (ScreenScout) is a movie and TV show browser powered by the TMDB (The Movie Database) API.
 
+## Stack & Entry Point
+- Runtime: static HTML/CSS/vanilla JavaScript
+- Entry point: `index.html`
+- Tooling: Node.js scripts for checks + Playwright for end-to-end and accessibility tests
+- Build step: none (app runs directly from `index.html`)
+
+## Run Locally
+Open `index.html` directly in a browser, or serve the project folder with any static file server.
+
+The app flow is:
+1. Enter TMDB Read Access Token in setup overlay
+2. App validates token and loads genres
+3. Hero + sections render; search, watchlist, modal detail views available
+
 ## Local Checks
 Run the lightweight project validation:
 
@@ -25,6 +39,20 @@ Useful subsets:
 - `npm run test:a11y`
 - `npm run test:setup`
 - `npm run test:resilience`
+
+## Available Scripts
+- `npm run check`: custom static quality checks for `index.html`
+- `npm run lint`: alias to `npm run check`
+- `npm test`: full Playwright suite
+- `npm run test:smoke`: smoke scenarios
+- `npm run test:a11y`: axe-core accessibility assertions
+- `npm run test:setup`: setup/token resilience scenarios
+- `npm run test:resilience`: transient API failure recovery scenarios
+- `npm run ci`: `check` + full tests
+
+Not currently configured:
+- `npm run build`
+- `npm run typecheck`
 
 Runtime resilience highlights:
 - setup overlay has a built-in retry action for transient TMDB failures
