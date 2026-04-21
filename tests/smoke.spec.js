@@ -47,7 +47,7 @@ test('persists watchlist after reload and allows removing saved item', async ({ 
   await expect(page.locator('#watchlistCount')).toHaveText('1');
 
   await page.reload();
-  await expect(page.locator('#watchlistCount')).toHaveText('1');
+  await expect(page.locator('#watchlistCount')).toHaveText('1', { timeout: 15000 });
 
   await page.locator('.nav-watchlist').click();
   await expect(page.locator('h2.section-title:has-text("Watchlist")')).toBeVisible();

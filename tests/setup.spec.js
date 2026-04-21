@@ -147,3 +147,114 @@ test('retries setup successfully after a transient failure', async ({ page }) =>
   await page.locator('#setupRetryBtn').click();
   await expect(page.locator('#setupOverlay')).toBeHidden();
 });
+
+test('automatically recovers from transient tmdb 429 during setup', async ({ page }) => {
+  let movieGenreAttempts = 0;
+
+  await page.route('https://api.themoviedb.org/3/**', route => {
+    const url = new URL(route.request().url());
+    const apiPath = url.pathname;
+
+    if (apiPath.endsWith('/genre/movie/list')) {
+      movieGenreAttempts += 1;
+      if (movieGenreAttempts === 1) {
+        return route.fulfill({
+          status: 429,
+          contentType: 'application/json',
+          headers: { 'Retry-After': '0' },
+          body: JSON.stringify({ status_message: 'Rate limit exceeded' })
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ genres: [{ id: 28, name: 'Action' }] })
+      });
+    }
+
+    if (apiPath.endsWith('/genre/tv/list')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ genres: [{ id: 18, name: 'Drama' }] })
+      });
+    }
+
+    if (apiPath.includes('/trending/')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ results: [{ id: 1, title: 'Movie 1', overview: 'Overview', vote_average: 7.5, backdrop_path: '/hero.jpg', genre_ids: [28], release_date: '2025-01-01' }] })
+      });
+    }
+
+    if (apiPath.match(/\/(movie|tv)\/(now_playing|popular|top_rated|upcoming|airing_today|on_the_air)$/)) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ results: [] })
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({})
+    });
+  });
+
+  await page.addInitScript(() => {
+    localStorage.removeItem('screenscout_token');
+    window.__TMDB_RETRY_DELAY_MS__ = 10;
+  });
+
+  await page.goto(appUrl);
+  await page.locator('#apiKeyInput').fill('rate-limit-token');
+  await page.locator('#setupSubmitBtn').click();
+
+  await expect(page.locator('#setupOverlay')).toBeHidden();
+});
+
+test('shows setup error when tmdb 429 retries are exhausted', async ({ page }) => {
+  await page.route('https://api.themoviedb.org/3/**', route => {
+    const url = new URL(route.request().url());
+    const apiPath = url.pathname;
+
+    if (apiPath.endsWith('/genre/movie/list')) {
+      return route.fulfill({
+        status: 429,
+        contentType: 'application/json',
+        headers: { 'Retry-After': '0' },
+        body: JSON.stringify({ status_message: 'Rate limit exceeded' })
+      });
+    }
+
+    if (apiPath.endsWith('/genre/tv/list')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ genres: [{ id: 18, name: 'Drama' }] })
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({})
+    });
+  });
+
+  await page.addInitScript(() => {
+    localStorage.removeItem('screenscout_token');
+    window.__TMDB_MAX_RETRIES__ = 1;
+    window.__TMDB_RETRY_DELAY_MS__ = 10;
+  });
+
+  await page.goto(appUrl);
+  await page.locator('#apiKeyInput').fill('rate-limit-fail-token');
+  await page.locator('#setupSubmitBtn').click();
+
+  await expect(page.locator('#setupOverlay')).toBeVisible();
+  await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
+  await expect(page.locator('#setupRetryBtn')).toBeVisible();
+});
