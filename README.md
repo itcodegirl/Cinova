@@ -27,6 +27,7 @@ This verifies:
 - inline script syntax validity in `index.html`
 - duplicate/missing critical element IDs
 - key accessibility semantics for navigation, search, and modal dialog
+- UTF-8 encoding hygiene across tracked text files
 
 Run end-to-end smoke and accessibility tests:
 
@@ -35,20 +36,24 @@ npm test
 ```
 
 Useful subsets:
+- `npm run test:unit`
 - `npm run test:smoke`
 - `npm run test:a11y`
 - `npm run test:setup`
 - `npm run test:resilience`
 
 ## Available Scripts
+- `npm run preview`: run local static preview server at `http://localhost:4173`
 - `npm run check`: custom static quality checks for `index.html`
+- `npm run check:encoding`: standalone UTF-8 encoding and mojibake guard
 - `npm run lint`: alias to `npm run check`
+- `npm run test:unit`: Node unit tests for helper logic
 - `npm test`: full Playwright suite
 - `npm run test:smoke`: smoke scenarios
 - `npm run test:a11y`: axe-core accessibility assertions
 - `npm run test:setup`: setup/token resilience scenarios
 - `npm run test:resilience`: transient API failure recovery scenarios
-- `npm run ci`: `check` + full tests
+- `npm run ci`: `check` + `test:unit` + full Playwright tests
 
 Not currently configured:
 - `npm run build`

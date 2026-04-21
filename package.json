@@ -8,12 +8,13 @@
     "check": "node scripts/check.js",
     "check:encoding": "node scripts/check-encoding.js",
     "lint": "npm run check",
+    "test:unit": "node --test tests/unit/*.test.js",
     "test": "playwright test",
     "test:smoke": "playwright test tests/smoke.spec.js",
     "test:a11y": "playwright test tests/a11y.spec.js",
     "test:setup": "playwright test tests/setup.spec.js",
     "test:resilience": "playwright test tests/resilience.spec.js",
-    "ci": "npm run check && npm test"
+    "ci": "npm run check && npm run test:unit && npm test"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.2",
