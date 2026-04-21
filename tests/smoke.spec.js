@@ -31,3 +31,27 @@ test('search shows pagination and supports jumping to the last page', async ({ p
   await page.locator('.pagination .page-btn', { hasText: '20' }).click();
   await expect(page.locator('.pagination .page-btn.active')).toHaveText('20');
 });
+
+test('opens detail modal and closes it with Escape', async ({ page }) => {
+  await page.locator('.movie-card .card-open').first().click();
+
+  await expect(page.locator('#modalOverlay')).toHaveClass(/open/);
+  await expect(page.locator('#modalContent .modal-title')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#modalOverlay')).not.toHaveClass(/open/);
+});
+
+test('persists watchlist after reload and allows removing saved item', async ({ page }) => {
+  await page.locator('.movie-grid .card-watchlist').first().click();
+  await expect(page.locator('#watchlistCount')).toHaveText('1');
+
+  await page.reload();
+  await expect(page.locator('#watchlistCount')).toHaveText('1');
+
+  await page.locator('.nav-watchlist').click();
+  await expect(page.locator('h2.section-title:has-text("Watchlist")')).toBeVisible();
+
+  await page.locator('.movie-grid .card-watchlist.saved').first().click();
+  await expect(page.getByText('Your watchlist is empty')).toBeVisible();
+});
