@@ -1218,19 +1218,18 @@
 				<p>4️⃣ Paste it below and start browsing!</p>
 			</div>
 			<label class="sr-only" for="apiKeyInput">TMDB API Read Access Token</label>
-			<input type="password" id="apiKeyInput" placeholder="Paste your TMDB API Read Access Token..."
-				onkeydown="if(event.key==='Enter') saveKey()">
+			<input type="password" id="apiKeyInput" placeholder="Paste your TMDB API Read Access Token...">
 			<div id="setupError" role="alert" aria-live="assertive" style="display:none; margin-top:-4px; margin-bottom: 12px; color: var(--accent); font-size: 13px;"></div>
 			<div class="setup-actions">
-				<button type="button" id="setupSubmitBtn" onclick="saveKey()">Start Browsing →</button>
-				<button type="button" id="setupRetryBtn" class="setup-retry" style="display:none;" onclick="retrySetup()">Retry Connection</button>
+				<button type="button" id="setupSubmitBtn" data-action="save-key">Start Browsing →</button>
+				<button type="button" id="setupRetryBtn" class="setup-retry" style="display:none;" data-action="retry-setup">Retry Connection</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- ═══ NAV ═══ -->
 	<nav aria-label="Primary">
-		<a class="nav-logo" href="#" aria-label="Go to home" onclick="event.preventDefault(); goHome()">
+		<a class="nav-logo" href="#" id="homeLink" aria-label="Go to home" data-action="go-home">
 			<div class="nav-logo-icon">
 				<svg viewBox="0 0 24 24">
 					<path
@@ -1241,25 +1240,24 @@
 		</a>
 
 		<div class="nav-center">
-			<form class="search-box" role="search" aria-label="Search movies and TV shows" onsubmit="event.preventDefault(); executeSearch();">
+			<form class="search-box" id="searchForm" role="search" aria-label="Search movies and TV shows">
 				<svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 					stroke-width="2">
 					<circle cx="11" cy="11" r="8" />
 					<line x1="21" y1="21" x2="16.65" y2="16.65" />
 				</svg>
 				<label class="sr-only" for="searchInput">Search movies and TV shows</label>
-				<input type="text" id="searchInput" placeholder="Search movies & TV shows..." aria-label="Search movies and TV shows" oninput="handleSearch()"
-					onkeydown="if(event.key==='Enter') executeSearch()">
-				<button class="search-clear" id="searchClear" type="button" aria-label="Clear search" aria-hidden="true" disabled onclick="clearSearch()">✕</button>
+				<input type="text" id="searchInput" placeholder="Search movies & TV shows..." aria-label="Search movies and TV shows">
+				<button class="search-clear" id="searchClear" type="button" aria-label="Clear search" aria-hidden="true" disabled data-action="clear-search">✕</button>
 			</form>
 		</div>
 
 		<div class="nav-tabs">
-			<button class="nav-tab active" data-type="movie" type="button" aria-pressed="true" onclick="switchType('movie', this)">Movies</button>
-			<button class="nav-tab" data-type="tv" type="button" aria-pressed="false" onclick="switchType('tv', this)">TV Shows</button>
+			<button class="nav-tab active" data-action="switch-type" data-type="movie" type="button" aria-pressed="true">Movies</button>
+			<button class="nav-tab" data-action="switch-type" data-type="tv" type="button" aria-pressed="false">TV Shows</button>
 		</div>
 
-		<button class="nav-watchlist" type="button" aria-label="Open watchlist" onclick="showWatchlist()">
+		<button class="nav-watchlist" type="button" aria-label="Open watchlist" data-action="show-watchlist">
 			♥ Watchlist
 			<span class="watchlist-count" id="watchlistCount" aria-live="polite" aria-atomic="true">0</span>
 		</button>
@@ -1277,7 +1275,7 @@
 	<main id="mainContent" aria-live="polite" aria-busy="false"></main>
 
 	<!-- ═══ MODAL ═══ -->
-	<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeModal()">
+	<div class="modal-overlay" id="modalOverlay">
 		<div class="modal" id="modalContent" role="dialog" aria-modal="true" aria-label="Title details" tabindex="-1"></div>
 	</div>
 
@@ -1311,6 +1309,9 @@
 		const mainContentEl = document.getElementById('mainContent');
 		const modalOverlayEl = document.getElementById('modalOverlay');
 		const modalContentEl = document.getElementById('modalContent');
+		const searchFormEl = document.getElementById('searchForm');
+		const searchInputEl = document.getElementById('searchInput');
+		const searchClearBtnEl = document.getElementById('searchClear');
 		let isInitializing = false;
 		let modalPreviouslyFocusedEl = null;
 
@@ -1338,6 +1339,112 @@
 		function getFocusableElements(container) {
 			return [...container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
 				.filter(el => !el.hasAttribute('hidden') && el.offsetParent !== null);
+		}
+
+		function buildDataAttributes(data = {}) {
+			return Object.entries(data)
+				.filter(([, value]) => value !== undefined && value !== null && value !== '')
+				.map(([key, value]) => ` data-${key}="${escapeHtml(value)}"`)
+				.join('');
+		}
+
+		function getActionId(actionEl) {
+			const id = Number(actionEl.dataset.id);
+			return Number.isFinite(id) ? id : null;
+		}
+
+		function handleAction(actionEl, event) {
+			const action = actionEl.dataset.action;
+			if (!action) return;
+
+			switch (action) {
+				case 'go-home':
+					event?.preventDefault?.();
+					goHome();
+					break;
+				case 'switch-type':
+					switchType(actionEl.dataset.type, actionEl);
+					break;
+				case 'show-watchlist':
+					showWatchlist();
+					break;
+				case 'clear-search':
+					clearSearch();
+					break;
+				case 'open-detail': {
+					const id = getActionId(actionEl);
+					const type = actionEl.dataset.type || currentType;
+					if (id !== null) openDetail(id, type);
+					break;
+				}
+				case 'toggle-watchlist': {
+					const id = getActionId(actionEl);
+					const type = actionEl.dataset.type || currentType;
+					if (id !== null) {
+						toggleWatchlist(id, type, actionEl.dataset.title || '', actionEl.dataset.poster || '', actionEl);
+					}
+					break;
+				}
+				case 'remove-watchlist': {
+					const id = getActionId(actionEl);
+					if (id !== null) removeFromWatchlist(id);
+					break;
+				}
+				case 'retry-hero':
+					retryHero();
+					break;
+				case 'retry-search':
+					retrySearch();
+					break;
+				case 'retry-section':
+					retrySection(actionEl.dataset.endpoint || '', actionEl.dataset.title || '', actionEl);
+					break;
+				case 'go-page':
+					goToPage(actionEl.dataset.page);
+					break;
+				case 'save-key':
+					saveKey();
+					break;
+				case 'retry-setup':
+					retrySetup();
+					break;
+				case 'close-modal':
+					closeModal();
+					break;
+				default:
+					break;
+			}
+		}
+
+		function bindEventListeners() {
+			document.addEventListener('click', event => {
+				const actionEl = event.target.closest('[data-action]');
+				if (!actionEl) return;
+				handleAction(actionEl, event);
+			});
+
+			modalOverlayEl.addEventListener('click', event => {
+				if (event.target === modalOverlayEl) closeModal();
+			});
+
+			searchFormEl.addEventListener('submit', event => {
+				event.preventDefault();
+				executeSearch();
+			});
+
+			searchInputEl.addEventListener('input', handleSearch);
+			searchInputEl.addEventListener('keydown', event => {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					executeSearch();
+				}
+			});
+
+			setupInputEl.addEventListener('keydown', event => {
+				if (event.key === 'Enter') {
+					saveKey();
+				}
+			});
 		}
 
 		function showSetupError(message) {
@@ -1368,6 +1475,7 @@
 		// ══════════════════════════════════════════
 		// INIT
 		// ══════════════════════════════════════════
+		bindEventListeners();
 		if (API_TOKEN) {
 			init();
 		}
@@ -1476,11 +1584,11 @@
 			return (ids || []).slice(0, 2).map(id => genreMap[id] || '').filter(Boolean).join(', ');
 		}
 
-		function renderInlineError(message, retryLabel, retryHandler) {
+		function renderInlineError(message, retryLabel, action, actionData = {}) {
 			const safeMessage = escapeHtml(message);
 			const safeLabel = escapeHtml(retryLabel || 'Retry');
-			const retryButton = retryHandler
-				? `<button class="inline-retry-btn" type="button" onclick="${retryHandler}">${safeLabel}</button>`
+			const retryButton = action
+				? `<button class="inline-retry-btn" type="button" data-action="${escapeHtml(action)}"${buildDataAttributes(actionData)}>${safeLabel}</button>`
 				: '';
 			return `<div class="inline-error"><p>${safeMessage}</p>${retryButton}</div>`;
 		}
@@ -1498,13 +1606,11 @@
 
 		function renderSectionError(title, endpoint) {
 			const safeTitle = escapeHtml(title);
-			const safeEndpoint = escapeJsString(endpoint);
-			const safeTitleArg = escapeJsString(title);
 			return `
 				<div class="section-header">
 					<h2 class="section-title">${safeTitle} <span>›</span></h2>
 				</div>
-				${renderInlineError(`Could not load ${title}.`, 'Retry Section', `retrySection('${safeEndpoint}', '${safeTitleArg}', this)`)}
+				${renderInlineError(`Could not load ${title}.`, 'Retry Section', 'retry-section', { endpoint, title })}
 			`;
 		}
 
@@ -1607,8 +1713,8 @@
 		// SEARCH
 		// ══════════════════════════════════════════
 		function handleSearch() {
-			const val = document.getElementById('searchInput').value;
-			const clearBtn = document.getElementById('searchClear');
+			const val = searchInputEl.value;
+			const clearBtn = searchClearBtnEl;
 			const hasValue = val.length > 0;
 			clearBtn.classList.toggle('visible', hasValue);
 			clearBtn.disabled = !hasValue;
@@ -1616,7 +1722,7 @@
 		}
 
 		function executeSearch() {
-			const query = document.getElementById('searchInput').value.trim();
+			const query = searchInputEl.value.trim();
 			if (!query) {
 				goHome();
 				return;
@@ -1627,8 +1733,8 @@
 		}
 
 		function clearSearch() {
-			document.getElementById('searchInput').value = '';
-			const clearBtn = document.getElementById('searchClear');
+			searchInputEl.value = '';
+			const clearBtn = searchClearBtnEl;
 			clearBtn.classList.remove('visible');
 			clearBtn.disabled = true;
 			clearBtn.setAttribute('aria-hidden', 'true');
@@ -1979,8 +2085,8 @@
 			btn.classList.add('active');
 			btn.setAttribute('aria-pressed', 'true');
 			currentQuery = '';
-			document.getElementById('searchInput').value = '';
-			const clearBtn = document.getElementById('searchClear');
+			searchInputEl.value = '';
+			const clearBtn = searchClearBtnEl;
 			clearBtn.classList.remove('visible');
 			clearBtn.disabled = true;
 			clearBtn.setAttribute('aria-hidden', 'true');
