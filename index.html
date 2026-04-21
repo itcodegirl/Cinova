@@ -1649,7 +1649,7 @@
 			} catch (e) {
 				console.error('Hero load failed:', e);
 				backdrop.style.backgroundImage = 'none';
-				heroInfo.innerHTML = `<div class="hero-error">${renderInlineError('Could not load the featured title right now.', 'Retry Hero', 'retryHero()')}</div>`;
+				heroInfo.innerHTML = `<div class="hero-error">${renderInlineError('Could not load the featured title right now.', 'Retry Hero', 'retry-hero')}</div>`;
 			}
 		}
 
@@ -1773,7 +1773,7 @@
 						<div class="section-header">
 							<h2 class="section-title">Results for "<span>${escapeHtml(currentQuery)}</span>"</h2>
 						</div>
-						${renderInlineError(`Search failed: ${e.message}`, 'Retry Search', 'retrySearch()')}
+						${renderInlineError(`Search failed: ${e.message}`, 'Retry Search', 'retry-search')}
 					</div>
 				`;
 			} finally {
