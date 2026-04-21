@@ -1,13 +1,19 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { runEncodingCheck } = require('./check-encoding');
 
 const htmlPath = path.resolve(__dirname, '..', 'index.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
 const errors = [];
+const encodingResult = runEncodingCheck();
 
 function assert(condition, message) {
   if (!condition) errors.push(message);
+}
+
+for (const issue of encodingResult.issues) {
+  errors.push(issue);
 }
 
 assert(html.includes('<!DOCTYPE html>'), 'Missing <!DOCTYPE html>.');

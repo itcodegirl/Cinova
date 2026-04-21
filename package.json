@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Cinova static TMDB browser checks",
   "scripts": {
+    "preview": "node scripts/preview.js",
     "check": "node scripts/check.js",
+    "check:encoding": "node scripts/check-encoding.js",
     "lint": "npm run check",
     "test": "playwright test",
     "test:smoke": "playwright test tests/smoke.spec.js",
