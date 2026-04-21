@@ -10,6 +10,15 @@ Cinova (ScreenScout) is a movie and TV show browser powered by the TMDB (The Mov
 ## Run Locally
 Open `index.html` directly in a browser, or serve the project folder with any static file server.
 
+Fastest local workflow:
+
+```bash
+npm run dev
+```
+
+This starts the local preview server and opens the app in your browser.
+Set `NO_OPEN=1` to skip auto-open.
+
 The app flow is:
 1. Enter TMDB Read Access Token in setup overlay
 2. App validates token and loads genres
@@ -43,6 +52,7 @@ Useful subsets:
 - `npm run test:resilience`
 
 ## Available Scripts
+- `npm run dev`: run preview server and auto-open `http://localhost:4173`
 - `npm run preview`: run local static preview server at `http://localhost:4173`
 - `npm run check`: custom static quality checks for `index.html`
 - `npm run check:encoding`: standalone UTF-8 encoding and mojibake guard
