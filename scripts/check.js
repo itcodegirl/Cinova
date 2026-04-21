@@ -48,6 +48,7 @@ for (const id of requiredIds) {
 assert(/<nav[^>]*aria-label="[^"]+"/.test(html), 'Expected nav to include an aria-label.');
 assert(/<input[^>]*id="searchInput"[^>]*aria-label="[^"]+"/.test(html), 'Expected #searchInput to include an aria-label.');
 assert(/<div[^>]*id="modalContent"[^>]*role="dialog"[^>]*aria-modal="true"/.test(html), 'Expected #modalContent to have dialog semantics.');
+assert(/<div[^>]*id="setupError"[^>]*role="alert"[^>]*aria-live="assertive"/.test(html), 'Expected #setupError to have alert live-region semantics.');
 
 const blankTargetLinks = [...html.matchAll(/<a\b[^>]*target="_blank"[^>]*>/g)].map(match => match[0]);
 for (const linkTag of blankTargetLinks) {

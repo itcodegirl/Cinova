@@ -1,5 +1,5 @@
 # Cinova
-FlickFind is a movie and TV show browser powered by the TMDB (The Movie Database) API.
+Cinova (ScreenScout) is a movie and TV show browser powered by the TMDB (The Movie Database) API.
 
 ## Local Checks
 Run the lightweight project validation:
@@ -30,6 +30,11 @@ Runtime resilience highlights:
 - setup overlay has a built-in retry action for transient TMDB failures
 - TMDB `429` responses use bounded retry/backoff with `Retry-After` support
 - hero, section, and search areas show inline retry actions on transient fetch errors
+
+Accessibility and polish highlights:
+- setup errors are announced via an assertive live region
+- trailer embeds include descriptive iframe titles
+- reduced-motion users get minimal animation/transition effects
 
 ## CI
 GitHub Actions runs the same check on each push and pull request via `.github/workflows/checks.yml`.

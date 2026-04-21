@@ -6,6 +6,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Cinova — Movie & TV Browser</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="dns-prefetch" href="//api.themoviedb.org">
+	<link rel="dns-prefetch" href="//image.tmdb.org">
 	<link
 		href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap"
 		rel="stylesheet">
@@ -1163,7 +1166,7 @@
 			</div>
 			<input type="password" id="apiKeyInput" placeholder="Paste your TMDB API Read Access Token..."
 				onkeydown="if(event.key==='Enter') saveKey()">
-			<div id="setupError" style="display:none; margin-top:-4px; margin-bottom: 12px; color: var(--accent); font-size: 13px;"></div>
+			<div id="setupError" role="alert" aria-live="assertive" style="display:none; margin-top:-4px; margin-bottom: 12px; color: var(--accent); font-size: 13px;"></div>
 			<div class="setup-actions">
 				<button type="button" id="setupSubmitBtn" onclick="saveKey()">Start Browsing →</button>
 				<button type="button" id="setupRetryBtn" class="setup-retry" style="display:none;" onclick="retrySetup()">Retry Connection</button>
@@ -1534,8 +1537,6 @@
 		// ══════════════════════════════════════════
 		// SEARCH
 		// ══════════════════════════════════════════
-		let searchTimeout;
-
 		function handleSearch() {
 			const val = document.getElementById('searchInput').value;
 			const clearBtn = document.getElementById('searchClear');
@@ -1546,7 +1547,6 @@
 		}
 
 		function executeSearch() {
-			clearTimeout(searchTimeout);
 			const query = document.getElementById('searchInput').value.trim();
 			if (!query) {
 				goHome();
@@ -1685,7 +1685,7 @@
 				modal.innerHTML = `
                     <div class="modal-backdrop">
                         ${backdropImg}
-                        <button class="modal-close" onclick="closeModal()">✕</button>
+                        <button class="modal-close" aria-label="Close details modal" onclick="closeModal()">✕</button>
                     </div>
                     <div class="modal-body">
                         <h1 class="modal-title">${title}</h1>
@@ -1724,14 +1724,14 @@
                         <div class="trailer-grid">
                             ${trailers.map(t => `
                                 <div class="trailer-card">
-                                    <iframe src="https://www.youtube.com/embed/${t.key}" allowfullscreen></iframe>
+                                    <iframe title="Trailer: ${escapeHtml(t.name || 'Video')}" src="https://www.youtube.com/embed/${t.key}" loading="lazy" allowfullscreen></iframe>
                                 </div>
                             `).join('')}
                         </div>` : ''}
                     </div>
                 `;
 			} catch (e) {
-				modal.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" onclick="closeModal()" style="position:relative; margin-top:16px;">✕ Close</button></div>`;
+				modal.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" aria-label="Close details modal" onclick="closeModal()" style="position:relative; margin-top:16px;">✕ Close</button></div>`;
 			}
 		}
 
