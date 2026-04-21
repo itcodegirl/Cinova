@@ -1328,10 +1328,6 @@
 				.replace(/'/g, '&#39;');
 		}
 
-		function escapeJsString(value) {
-			return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-		}
-
 		function setMainBusy(isBusy) {
 			mainContentEl.setAttribute('aria-busy', String(Boolean(isBusy)));
 		}
@@ -1641,7 +1637,7 @@
                         </div>
                         <span class="hero-date">${year}</span>
                         <span class="hero-genre">${escapeHtml(getGenreNames(featured.genre_ids))}</span>
-                        <button class="hero-btn" onclick="openDetail(${featured.id}, '${currentType}')">
+                        <button class="hero-btn" data-action="open-detail" data-id="${featured.id}" data-type="${escapeHtml(currentType)}" type="button">
                             View Details →
                         </button>
                     </div>
@@ -1795,16 +1791,14 @@
 			const date = item.release_date || item.first_air_date || '';
 			const year = date ? new Date(date).getFullYear() : '';
 			const type = item.media_type || currentType;
-			const safeType = escapeJsString(type);
-			const safeTitleJs = escapeJsString(title);
-			const safePosterPath = escapeJsString(item.poster_path || '');
+			const safeType = escapeHtml(type);
 			const isSaved = watchlist.some(w => w.id === item.id);
 			const poster = item.poster_path
 				? `<img src="${IMG_BASE}w342${item.poster_path}" alt="${safeTitle}" loading="lazy">`
 				: `<div class="no-poster">🎬</div>`;
 
 			return `
-                <div class="movie-card" style="animation-delay: ${index * 0.05}s" onclick="openDetail(${item.id}, '${safeType}')">
+                <div class="movie-card" style="animation-delay: ${index * 0.05}s" data-action="open-detail" data-id="${item.id}" data-type="${safeType}">
                     <div class="card-poster">
                         ${poster}
                         ${item.vote_average ? `
@@ -1812,7 +1806,7 @@
                             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                             ${typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : 'N/A'}
                         </div>` : ''}
-                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" onclick="event.stopPropagation(); toggleWatchlist(${item.id}, '${safeType}', '${safeTitleJs}', '${safePosterPath}', this)">
+                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" data-action="toggle-watchlist" data-id="${item.id}" data-type="${safeType}" data-title="${safeTitle}" data-poster="${escapeHtml(item.poster_path || '')}" type="button">
                             ${isSaved ? '♥' : '♡'}
                         </button>
                     </div>
@@ -1822,7 +1816,7 @@
                             <span>${year}</span>
                             <span>${escapeHtml(getGenreNames(item.genre_ids))}</span>
                         </div>
-						<button class="card-open" type="button" aria-label="View details for ${safeTitle}" onclick="event.stopPropagation(); openDetail(${item.id}, '${safeType}')">View details</button>
+						<button class="card-open" type="button" aria-label="View details for ${safeTitle}" data-action="open-detail" data-id="${item.id}" data-type="${safeType}">View details</button>
                     </div>
                 </div>
             `;
@@ -1893,7 +1887,7 @@
 				modalContentEl.innerHTML = `
                     <div class="modal-backdrop">
                         ${backdropImg}
-                        <button class="modal-close" aria-label="Close details modal" onclick="closeModal()">X</button>
+                        <button class="modal-close" aria-label="Close details modal" data-action="close-modal" type="button">X</button>
                     </div>
                     <div class="modal-body">
                         <h1 class="modal-title">${title}</h1>
@@ -1941,7 +1935,7 @@
 				focusModalContent();
 			} catch (e) {
 				modalContentEl.setAttribute('aria-label', 'Error loading title details');
-				modalContentEl.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" aria-label="Close details modal" onclick="closeModal()" style="position:relative; margin-top:16px;">X Close</button></div>`;
+				modalContentEl.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" aria-label="Close details modal" data-action="close-modal" type="button" style="position:relative; margin-top:16px;">X Close</button></div>`;
 				focusModalContent();
 			}
 		}
@@ -2002,18 +1996,18 @@
                     </div>
                     <div class="movie-grid">
                         ${watchlist.map((item, i) => `
-                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" onclick="openDetail(${item.id}, '${escapeJsString(item.type)}')">
+                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" data-action="open-detail" data-id="${item.id}" data-type="${escapeHtml(item.type)}">
                                 <div class="card-poster">
                                     ${item.poster
 					? `<img src="${IMG_BASE}w342${item.poster}" alt="${escapeHtml(item.title)}" loading="lazy">`
 					: `<div class="no-poster">🎬</div>`
 				}
-                                    <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" onclick="event.stopPropagation(); removeFromWatchlist(${item.id})">♥</button>
+                                    <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" data-action="remove-watchlist" data-id="${item.id}" type="button">♥</button>
                                 </div>
                                 <div class="card-info">
                                     <div class="card-title">${escapeHtml(item.title)}</div>
                                     <div class="card-meta"><span>${item.type === 'tv' ? 'TV Show' : 'Movie'}</span></div>
-									<button class="card-open" type="button" aria-label="View details for ${escapeHtml(item.title)}" onclick="event.stopPropagation(); openDetail(${item.id}, '${escapeJsString(item.type)}')">View details</button>
+									<button class="card-open" type="button" aria-label="View details for ${escapeHtml(item.title)}" data-action="open-detail" data-id="${item.id}" data-type="${escapeHtml(item.type)}">View details</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -2041,27 +2035,27 @@
 			const endPage = Math.min(safeTotal, startPage + maxPageButtons - 1);
 			let buttons = '';
 
-			buttons += `<button class="page-btn" onclick="goToPage(${safeCurrent - 1})" ${safeCurrent <= 1 ? 'disabled' : ''}>‹</button>`;
+			buttons += `<button class="page-btn" data-action="go-page" data-page="${safeCurrent - 1}" ${safeCurrent <= 1 ? 'disabled' : ''}>‹</button>`;
 
 			if (startPage > 1) {
-				buttons += `<button class="page-btn ${1 === safeCurrent ? 'active' : ''}" onclick="goToPage(1)">1</button>`;
+				buttons += `<button class="page-btn ${1 === safeCurrent ? 'active' : ''}" data-action="go-page" data-page="1">1</button>`;
 				if (startPage > 2) {
 					buttons += `<button class="page-btn" disabled>…</button>`;
 				}
 			}
 
 			for (let i = startPage; i <= endPage; i++) {
-				buttons += `<button class="page-btn ${i === safeCurrent ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+				buttons += `<button class="page-btn ${i === safeCurrent ? 'active' : ''}" data-action="go-page" data-page="${i}">${i}</button>`;
 			}
 
 			if (endPage < safeTotal) {
 				if (endPage < safeTotal - 1) {
 					buttons += `<button class="page-btn" disabled>…</button>`;
 				}
-				buttons += `<button class="page-btn ${safeTotal === safeCurrent ? 'active' : ''}" onclick="goToPage(${safeTotal})">${safeTotal}</button>`;
+				buttons += `<button class="page-btn ${safeTotal === safeCurrent ? 'active' : ''}" data-action="go-page" data-page="${safeTotal}">${safeTotal}</button>`;
 			}
 
-			buttons += `<button class="page-btn" onclick="goToPage(${safeCurrent + 1})" ${safeCurrent >= safeTotal ? 'disabled' : ''}>›</button>`;
+			buttons += `<button class="page-btn" data-action="go-page" data-page="${safeCurrent + 1}" ${safeCurrent >= safeTotal ? 'disabled' : ''}>›</button>`;
 
 			return `<div class="pagination">${buttons}</div>`;
 		}
@@ -2113,6 +2107,7 @@
 </body>
 
 </html>
+
 
 
 
