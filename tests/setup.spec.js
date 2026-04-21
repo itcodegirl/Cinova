@@ -1,6 +1,7 @@
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { test, expect } = require('@playwright/test');
+const { mockTmdb } = require('./helpers/mockTmdb');
 
 const appUrl = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
 
@@ -257,4 +258,21 @@ test('shows setup error when tmdb 429 retries are exhausted', async ({ page }) =
   await expect(page.locator('#setupOverlay')).toBeVisible();
   await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
   await expect(page.locator('#setupRetryBtn')).toBeVisible();
+});
+
+test('ignores corrupted watchlist storage and still initializes', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+
+  await mockTmdb(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('screenscout_token', 'test-token');
+    localStorage.setItem('screenscout_watchlist', '{"broken":');
+  });
+
+  await page.goto(appUrl);
+
+  await expect(page.locator('#setupOverlay')).toBeHidden();
+  await expect(page.locator('#watchlistCount')).toHaveText('0');
+  expect(pageErrors).toEqual([]);
 });

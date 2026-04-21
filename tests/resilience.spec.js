@@ -174,3 +174,46 @@ test('search inline retry recovers after transient search failure', async ({ pag
   await expect(page.locator('h2.section-title:has-text("Results for")')).toBeVisible();
   await expect(page.getByText('Retry Search Result')).toBeVisible();
 });
+
+test('falls back when API returns unsafe poster paths', async ({ page }) => {
+  await page.route('https://api.themoviedb.org/3/**', route => {
+    const url = new URL(route.request().url());
+    const apiPath = url.pathname;
+    const pageNumber = Number(url.searchParams.get('page') || '1');
+
+    if (apiPath.endsWith('/movie/now_playing')) {
+      return fulfill(route, 200, {
+        results: [{
+          id: 777,
+          media_type: 'movie',
+          title: 'Unsafe Poster Payload',
+          overview: 'Should not inject attributes',
+          vote_average: 8.0,
+          genre_ids: [28],
+          poster_path: '/poster.jpg" onerror="window.__xssFlag=1',
+          release_date: '2025-01-01'
+        }]
+      });
+    }
+
+    return defaultApiResponse(route, apiPath, pageNumber);
+  });
+
+  await page.addInitScript(() => {
+    localStorage.setItem('screenscout_token', 'test-token');
+    window.__xssFlag = 0;
+  });
+
+  await page.goto(appUrl);
+
+  const nowPlayingSection = page.locator('.section').filter({
+    has: page.locator('h2.section-title:has-text("Now Playing")')
+  }).first();
+
+  await expect(nowPlayingSection.getByText('Unsafe Poster Payload')).toBeVisible();
+  await expect(nowPlayingSection.locator('.movie-card img')).toHaveCount(0);
+  await expect(nowPlayingSection.locator('.movie-card .no-poster')).toHaveCount(1);
+
+  const xssFlag = await page.evaluate(() => window.__xssFlag);
+  expect(xssFlag).toBe(0);
+});

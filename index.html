@@ -1283,12 +1283,79 @@
 		// ══════════════════════════════════════════
 		// STATE
 		// ══════════════════════════════════════════
-		let API_TOKEN = localStorage.getItem('screenscout_token') || '';
+		function getStorageItem(key, fallback = '') {
+			try {
+				const value = localStorage.getItem(key);
+				return value === null ? fallback : value;
+			} catch (error) {
+				console.warn(`Storage read failed for "${key}"`, error);
+				return fallback;
+			}
+		}
+
+		function setStorageItem(key, value) {
+			try {
+				localStorage.setItem(key, value);
+			} catch (error) {
+				console.warn(`Storage write failed for "${key}"`, error);
+			}
+		}
+
+		function getSafeTmdbPath(pathValue) {
+			if (typeof pathValue !== 'string') return '';
+			const trimmed = pathValue.trim();
+			return /^\/[A-Za-z0-9/_\-.]+$/.test(trimmed) ? trimmed : '';
+		}
+
+		function getTmdbImageUrl(pathValue, size) {
+			const safePath = getSafeTmdbPath(pathValue);
+			return safePath ? `${IMG_BASE}${size}${safePath}` : '';
+		}
+
+		function getYouTubeEmbedUrl(videoKey) {
+			if (typeof videoKey !== 'string') return '';
+			const trimmed = videoKey.trim();
+			if (!/^[A-Za-z0-9_-]{6,20}$/.test(trimmed)) return '';
+			return `https://www.youtube.com/embed/${encodeURIComponent(trimmed)}`;
+		}
+
+		function parseStoredWatchlist(rawValue) {
+			let parsed;
+			try {
+				parsed = JSON.parse(rawValue || '[]');
+			} catch {
+				return [];
+			}
+
+			if (!Array.isArray(parsed)) return [];
+
+			const normalized = [];
+			const seen = new Set();
+
+			for (const entry of parsed) {
+				if (!entry || typeof entry !== 'object') continue;
+				const id = Number(entry.id);
+				if (!Number.isFinite(id)) continue;
+
+				const type = entry.type === 'tv' ? 'tv' : 'movie';
+				const title = String(entry.title || '').trim() || 'Untitled';
+				const poster = getSafeTmdbPath(entry.poster);
+				const dedupeKey = `${type}:${id}`;
+
+				if (seen.has(dedupeKey)) continue;
+				seen.add(dedupeKey);
+				normalized.push({ id, type, title, poster });
+			}
+
+			return normalized;
+		}
+
+		let API_TOKEN = getStorageItem('screenscout_token', '');
 		let currentType = 'movie'; // 'movie' or 'tv'
 		let currentPage = 1;
 		let currentQuery = '';
 		let searchTotalPages = 1;
-		let watchlist = JSON.parse(localStorage.getItem('screenscout_watchlist') || '[]');
+		let watchlist = parseStoredWatchlist(getStorageItem('screenscout_watchlist', '[]'));
 		let genreMap = {};
 
 		const IMG_BASE = 'https://image.tmdb.org/t/p/';
@@ -1484,7 +1551,7 @@
 				return;
 			}
 			API_TOKEN = key;
-			localStorage.setItem('screenscout_token', key);
+			setStorageItem('screenscout_token', key);
 			init();
 		}
 
@@ -1793,8 +1860,10 @@
 			const type = item.media_type || currentType;
 			const safeType = escapeHtml(type);
 			const isSaved = watchlist.some(w => w.id === item.id);
-			const poster = item.poster_path
-				? `<img src="${IMG_BASE}w342${item.poster_path}" alt="${safeTitle}" loading="lazy">`
+			const safePosterPath = getSafeTmdbPath(item.poster_path);
+			const posterUrl = getTmdbImageUrl(item.poster_path, 'w342');
+			const poster = posterUrl
+				? `<img src="${posterUrl}" alt="${safeTitle}" loading="lazy">`
 				: `<div class="no-poster">🎬</div>`;
 
 			return `
@@ -1806,7 +1875,7 @@
                             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                             ${typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : 'N/A'}
                         </div>` : ''}
-                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" data-action="toggle-watchlist" data-id="${item.id}" data-type="${safeType}" data-title="${safeTitle}" data-poster="${escapeHtml(item.poster_path || '')}" type="button">
+                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" data-action="toggle-watchlist" data-id="${item.id}" data-type="${safeType}" data-title="${safeTitle}" data-poster="${escapeHtml(safePosterPath)}" type="button">
                             ${isSaved ? '♥' : '♡'}
                         </button>
                     </div>
@@ -1855,6 +1924,7 @@
 		}
 
 		async function openDetail(id, type) {
+			const mediaType = type === 'tv' ? 'tv' : 'movie';
 			modalPreviouslyFocusedEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 			modalOverlayEl.classList.add('open');
 			document.body.style.overflow = 'hidden';
@@ -1864,9 +1934,9 @@
 
 			try {
 				const [detail, credits, videos] = await Promise.all([
-					tmdbFetch(`/${type}/${id}`),
-					tmdbFetch(`/${type}/${id}/credits`),
-					tmdbFetch(`/${type}/${id}/videos`)
+					tmdbFetch(`/${mediaType}/${id}`),
+					tmdbFetch(`/${mediaType}/${id}/credits`),
+					tmdbFetch(`/${mediaType}/${id}/videos`)
 				]);
 
 				const rawTitle = detail.title || detail.name || 'Title details';
@@ -1876,11 +1946,16 @@
 				const runtime = detail.runtime ? `${Math.floor(detail.runtime / 60)}h ${detail.runtime % 60}m` : '';
 				const seasons = detail.number_of_seasons ? `${detail.number_of_seasons} Season${detail.number_of_seasons > 1 ? 's' : ''}` : '';
 				const genres = (detail.genres || []).map(g => `<span class="modal-tag">${escapeHtml(g.name)}</span>`).join('');
-				const trailers = (videos.results || []).filter(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')).slice(0, 2);
+				const trailers = (videos.results || [])
+					.filter(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'))
+					.map(v => ({ ...v, embedUrl: getYouTubeEmbedUrl(v.key) }))
+					.filter(v => Boolean(v.embedUrl))
+					.slice(0, 2);
 				const cast = (credits.cast || []).slice(0, 10);
+				const backdropUrl = getTmdbImageUrl(detail.backdrop_path, 'w1280');
 
-				const backdropImg = detail.backdrop_path
-					? `<img src="${IMG_BASE}w1280${detail.backdrop_path}" alt="${title}">`
+				const backdropImg = backdropUrl
+					? `<img src="${backdropUrl}" alt="${title}">`
 					: `<div style="height:100%; background: var(--bg-card);"></div>`;
 
 				modalContentEl.setAttribute('aria-label', `${rawTitle} details`);
@@ -1907,18 +1982,21 @@
                         ${cast.length ? `
                         <h3 class="modal-section-title">Cast</h3>
                         <div class="cast-row">
-                            ${cast.map(c => `
+                            ${cast.map(c => {
+						const castPhotoUrl = getTmdbImageUrl(c.profile_path, 'w185');
+						return `
                                 <div class="cast-card">
                                     <div class="cast-photo">
-                                        ${c.profile_path
-						? `<img src="${IMG_BASE}w185${c.profile_path}" alt="${escapeHtml(c.name)}">`
+                                        ${castPhotoUrl
+						? `<img src="${castPhotoUrl}" alt="${escapeHtml(c.name)}">`
 						: `<div class="no-photo">👤</div>`
 					}
                                     </div>
                                     <div class="cast-name">${escapeHtml(c.name)}</div>
                                     <div class="cast-character">${escapeHtml(c.character || c.roles?.[0]?.character || '')}</div>
                                 </div>
-                            `).join('')}
+                            `;
+					}).join('')}
                         </div>` : ''}
 
                         ${trailers.length ? `
@@ -1926,7 +2004,7 @@
                         <div class="trailer-grid">
                             ${trailers.map(t => `
                                 <div class="trailer-card">
-                                    <iframe title="Trailer: ${escapeHtml(t.name || 'Video')}" src="https://www.youtube.com/embed/${t.key}" loading="lazy" allowfullscreen></iframe>
+                                    <iframe title="Trailer: ${escapeHtml(t.name || 'Video')}" src="${escapeHtml(t.embedUrl)}" loading="lazy" allowfullscreen></iframe>
                                 </div>
                             `).join('')}
                         </div>` : ''}
@@ -1952,17 +2030,18 @@
 		// WATCHLIST
 		// ══════════════════════════════════════════
 		function toggleWatchlist(id, type, title, poster, btn) {
+			const normalizedType = type === 'tv' ? 'tv' : 'movie';
 			const idx = watchlist.findIndex(w => w.id === id);
 			if (idx > -1) {
 				watchlist.splice(idx, 1);
 				btn.classList.remove('saved');
 				btn.textContent = '♡';
 			} else {
-				watchlist.push({ id, type, title, poster });
+				watchlist.push({ id, type: normalizedType, title: String(title || ''), poster: getSafeTmdbPath(poster) });
 				btn.classList.add('saved');
 				btn.textContent = '♥';
 			}
-			localStorage.setItem('screenscout_watchlist', JSON.stringify(watchlist));
+			setStorageItem('screenscout_watchlist', JSON.stringify(watchlist));
 			updateWatchlistCount();
 		}
 
@@ -1995,11 +2074,13 @@
                         <span class="section-link">${watchlist.length} saved</span>
                     </div>
                     <div class="movie-grid">
-                        ${watchlist.map((item, i) => `
+                        ${watchlist.map((item, i) => {
+					const itemPosterUrl = getTmdbImageUrl(item.poster, 'w342');
+					return `
                             <div class="movie-card" style="animation-delay: ${i * 0.05}s" data-action="open-detail" data-id="${item.id}" data-type="${escapeHtml(item.type)}">
                                 <div class="card-poster">
-                                    ${item.poster
-					? `<img src="${IMG_BASE}w342${item.poster}" alt="${escapeHtml(item.title)}" loading="lazy">`
+                                    ${itemPosterUrl
+					? `<img src="${itemPosterUrl}" alt="${escapeHtml(item.title)}" loading="lazy">`
 					: `<div class="no-poster">🎬</div>`
 				}
                                     <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" data-action="remove-watchlist" data-id="${item.id}" type="button">♥</button>
@@ -2010,7 +2091,8 @@
 									<button class="card-open" type="button" aria-label="View details for ${escapeHtml(item.title)}" data-action="open-detail" data-id="${item.id}" data-type="${escapeHtml(item.type)}">View details</button>
                                 </div>
                             </div>
-                        `).join('')}
+                        `;
+				}).join('')}
                     </div>
                 </div>
             `;
@@ -2019,7 +2101,7 @@
 
 		function removeFromWatchlist(id) {
 			watchlist = watchlist.filter(w => w.id !== id);
-			localStorage.setItem('screenscout_watchlist', JSON.stringify(watchlist));
+			setStorageItem('screenscout_watchlist', JSON.stringify(watchlist));
 			updateWatchlistCount();
 			showWatchlist();
 		}
