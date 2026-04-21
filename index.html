@@ -389,6 +389,37 @@
 			color: var(--accent);
 		}
 
+		.inline-error {
+			background: var(--bg-card);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-md);
+			padding: 20px;
+			text-align: center;
+			color: var(--text-secondary);
+		}
+
+		.inline-error p {
+			margin-bottom: 12px;
+		}
+
+		.inline-retry-btn {
+			padding: 8px 14px;
+			border-radius: var(--radius-sm);
+			border: 1px solid var(--border-light);
+			background: transparent;
+			color: var(--text-primary);
+			font-family: 'Outfit', sans-serif;
+			font-size: 13px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: var(--transition);
+		}
+
+		.inline-retry-btn:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+
 		/* ─── GRID ─── */
 		.movie-grid {
 			display: grid;
@@ -540,6 +571,10 @@
 		.card-open:focus-visible {
 			color: var(--accent);
 			outline: none;
+		}
+
+		.hero-error {
+			max-width: 520px;
 		}
 
 		/* ─── PAGINATION ─── */
@@ -1356,23 +1391,55 @@
 			return (ids || []).slice(0, 2).map(id => genreMap[id] || '').filter(Boolean).join(', ');
 		}
 
+		function renderInlineError(message, retryLabel, retryHandler) {
+			const safeMessage = escapeHtml(message);
+			const safeLabel = escapeHtml(retryLabel || 'Retry');
+			const retryButton = retryHandler
+				? `<button class="inline-retry-btn" type="button" onclick="${retryHandler}">${safeLabel}</button>`
+				: '';
+			return `<div class="inline-error"><p>${safeMessage}</p>${retryButton}</div>`;
+		}
+
+		function renderSectionContent(title, results) {
+			return `
+				<div class="section-header">
+					<h2 class="section-title">${escapeHtml(title)} <span>›</span></h2>
+				</div>
+				<div class="movie-grid">
+					${results.slice(0, 12).map((item, i) => createCard(item, i)).join('')}
+				</div>
+			`;
+		}
+
+		function renderSectionError(title, endpoint) {
+			const safeTitle = escapeHtml(title);
+			const safeEndpoint = escapeJsString(endpoint);
+			const safeTitleArg = escapeJsString(title);
+			return `
+				<div class="section-header">
+					<h2 class="section-title">${safeTitle} <span>›</span></h2>
+				</div>
+				${renderInlineError(`Could not load ${title}.`, 'Retry Section', `retrySection('${safeEndpoint}', '${safeTitleArg}', this)`)}
+			`;
+		}
+
 		// ══════════════════════════════════════════
 		// HERO
 		// ══════════════════════════════════════════
 		async function loadHero() {
+			const backdrop = document.getElementById('heroBackdrop');
+			const heroInfo = document.getElementById('heroInfo');
 			try {
 				const data = await tmdbFetch(`/trending/${currentType}/week`);
 				const featured = data.results.find(m => m.backdrop_path) || data.results[0];
-				if (!featured) return;
-
-				const backdrop = document.getElementById('heroBackdrop');
+				if (!featured) throw new Error('No featured title');
 				backdrop.style.backgroundImage = `url(${IMG_BASE}w1280${featured.backdrop_path})`;
 
 				const title = featured.title || featured.name;
 				const date = featured.release_date || featured.first_air_date || '';
 				const year = date ? new Date(date).getFullYear() : '';
 
-				document.getElementById('heroInfo').innerHTML = `
+				heroInfo.innerHTML = `
                     <div class="hero-badge">🔥 Trending This Week</div>
                     <h1 class="hero-title">${escapeHtml(title)}</h1>
                     <p class="hero-overview">${escapeHtml(featured.overview)}</p>
@@ -1390,7 +1457,13 @@
                 `;
 			} catch (e) {
 				console.error('Hero load failed:', e);
+				backdrop.style.backgroundImage = 'none';
+				heroInfo.innerHTML = `<div class="hero-error">${renderInlineError('Could not load the featured title right now.', 'Retry Hero', 'retryHero()')}</div>`;
 			}
+		}
+
+		function retryHero() {
+			loadHero();
 		}
 
 		// ══════════════════════════════════════════
@@ -1415,22 +1488,32 @@
 				];
 
 			for (const section of sections) {
+				const sectionEl = document.createElement('div');
+				sectionEl.className = 'section';
 				try {
 					const data = await tmdbFetch(section.endpoint);
-					const sectionEl = document.createElement('div');
-					sectionEl.className = 'section';
-					sectionEl.innerHTML = `
-                        <div class="section-header">
-                            <h2 class="section-title">${section.title} <span>›</span></h2>
-                        </div>
-                        <div class="movie-grid">
-                            ${data.results.slice(0, 12).map((item, i) => createCard(item, i)).join('')}
-                        </div>
-                    `;
-					main.appendChild(sectionEl);
+					sectionEl.innerHTML = renderSectionContent(section.title, data.results || []);
 				} catch (e) {
 					console.error(`Failed to load ${section.title}:`, e);
+					sectionEl.innerHTML = renderSectionError(section.title, section.endpoint);
 				}
+				main.appendChild(sectionEl);
+			}
+		}
+
+		async function retrySection(endpoint, title, triggerEl) {
+			const sectionEl = triggerEl?.closest?.('.section');
+			if (!sectionEl) {
+				await loadSections();
+				return;
+			}
+
+			try {
+				const data = await tmdbFetch(endpoint);
+				sectionEl.innerHTML = renderSectionContent(title, data.results || []);
+			} catch (e) {
+				console.error(`Retry failed for ${title}:`, e);
+				sectionEl.innerHTML = renderSectionError(title, endpoint);
 			}
 		}
 
@@ -1496,8 +1579,20 @@
                     </div>
                 `;
 			} catch (e) {
-				main.innerHTML = `<p style="color:var(--accent); text-align:center; padding:60px;">Error: ${escapeHtml(e.message)}</p>`;
+				main.innerHTML = `
+					<div class="section" style="margin-top: 32px;">
+						<div class="section-header">
+							<h2 class="section-title">Results for "<span>${escapeHtml(currentQuery)}</span>"</h2>
+						</div>
+						${renderInlineError(`Search failed: ${e.message}`, 'Retry Search', 'retrySearch()')}
+					</div>
+				`;
 			}
+		}
+
+		function retrySearch() {
+			if (!currentQuery) return;
+			performSearch();
 		}
 
 		// ══════════════════════════════════════════
