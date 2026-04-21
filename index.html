@@ -1077,8 +1077,8 @@
 	</div>
 
 	<!-- ═══ NAV ═══ -->
-	<nav>
-		<a class="nav-logo" onclick="goHome()">
+	<nav aria-label="Primary">
+		<a class="nav-logo" href="#" aria-label="Go to home" onclick="event.preventDefault(); goHome()">
 			<div class="nav-logo-icon">
 				<svg viewBox="0 0 24 24">
 					<path
@@ -1089,26 +1089,26 @@
 		</a>
 
 		<div class="nav-center">
-			<div class="search-box">
+			<div class="search-box" role="search" aria-label="Search movies and TV shows">
 				<svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 					stroke-width="2">
 					<circle cx="11" cy="11" r="8" />
 					<line x1="21" y1="21" x2="16.65" y2="16.65" />
 				</svg>
-				<input type="text" id="searchInput" placeholder="Search movies & TV shows..." oninput="handleSearch()"
+				<input type="text" id="searchInput" placeholder="Search movies & TV shows..." aria-label="Search movies and TV shows" oninput="handleSearch()"
 					onkeydown="if(event.key==='Enter') executeSearch()">
-				<button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+				<button class="search-clear" id="searchClear" type="button" aria-label="Clear search" aria-hidden="true" disabled onclick="clearSearch()">✕</button>
 			</div>
 		</div>
 
 		<div class="nav-tabs">
-			<button class="nav-tab active" data-type="movie" onclick="switchType('movie', this)">Movies</button>
-			<button class="nav-tab" data-type="tv" onclick="switchType('tv', this)">TV Shows</button>
+			<button class="nav-tab active" data-type="movie" type="button" aria-pressed="true" onclick="switchType('movie', this)">Movies</button>
+			<button class="nav-tab" data-type="tv" type="button" aria-pressed="false" onclick="switchType('tv', this)">TV Shows</button>
 		</div>
 
-		<button class="nav-watchlist" onclick="showWatchlist()">
+		<button class="nav-watchlist" type="button" aria-label="Open watchlist" onclick="showWatchlist()">
 			♥ Watchlist
-			<span class="watchlist-count" id="watchlistCount">0</span>
+			<span class="watchlist-count" id="watchlistCount" aria-live="polite" aria-atomic="true">0</span>
 		</button>
 	</nav>
 
@@ -1125,7 +1125,7 @@
 
 	<!-- ═══ MODAL ═══ -->
 	<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeModal()">
-		<div class="modal" id="modalContent"></div>
+		<div class="modal" id="modalContent" role="dialog" aria-modal="true" aria-label="Title details"></div>
 	</div>
 
 	<script>
@@ -1323,7 +1323,11 @@
 
 		function handleSearch() {
 			const val = document.getElementById('searchInput').value;
-			document.getElementById('searchClear').classList.toggle('visible', val.length > 0);
+			const clearBtn = document.getElementById('searchClear');
+			const hasValue = val.length > 0;
+			clearBtn.classList.toggle('visible', hasValue);
+			clearBtn.disabled = !hasValue;
+			clearBtn.setAttribute('aria-hidden', String(!hasValue));
 		}
 
 		function executeSearch() {
@@ -1340,7 +1344,10 @@
 
 		function clearSearch() {
 			document.getElementById('searchInput').value = '';
-			document.getElementById('searchClear').classList.remove('visible');
+			const clearBtn = document.getElementById('searchClear');
+			clearBtn.classList.remove('visible');
+			clearBtn.disabled = true;
+			clearBtn.setAttribute('aria-hidden', 'true');
 			currentQuery = '';
 			goHome();
 		}
@@ -1393,7 +1400,7 @@
 				: `<div class="no-poster">🎬</div>`;
 
 			return `
-                <div class="movie-card" style="animation-delay: ${index * 0.05}s" onclick="openDetail(${item.id}, '${safeType}')">
+                <div class="movie-card" style="animation-delay: ${index * 0.05}s" role="button" tabindex="0" onclick="openDetail(${item.id}, '${safeType}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDetail(${item.id}, '${safeType}')}">
                     <div class="card-poster">
                         ${poster}
                         ${item.vote_average ? `
@@ -1401,7 +1408,7 @@
                             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                             ${typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : 'N/A'}
                         </div>` : ''}
-                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" onclick="event.stopPropagation(); toggleWatchlist(${item.id}, '${safeType}', '${safeTitleJs}', '${safePosterPath}', this)">
+                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" onclick="event.stopPropagation(); toggleWatchlist(${item.id}, '${safeType}', '${safeTitleJs}', '${safePosterPath}', this)">
                             ${isSaved ? '♥' : '♡'}
                         </button>
                     </div>
@@ -1552,13 +1559,13 @@
                     </div>
                     <div class="movie-grid">
                         ${watchlist.map((item, i) => `
-                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" onclick="openDetail(${item.id}, '${escapeJsString(item.type)}')">
+                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" role="button" tabindex="0" onclick="openDetail(${item.id}, '${escapeJsString(item.type)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDetail(${item.id}, '${escapeJsString(item.type)}')}">
                                 <div class="card-poster">
                                     ${item.poster
 					? `<img src="${IMG_BASE}w342${item.poster}" alt="${escapeHtml(item.title)}" loading="lazy">`
 					: `<div class="no-poster">🎬</div>`
 				}
-                                    <button class="card-watchlist saved" onclick="event.stopPropagation(); removeFromWatchlist(${item.id})">♥</button>
+                                    <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" onclick="event.stopPropagation(); removeFromWatchlist(${item.id})">♥</button>
                                 </div>
                                 <div class="card-info">
                                     <div class="card-title">${escapeHtml(item.title)}</div>
@@ -1627,11 +1634,18 @@
 		// ══════════════════════════════════════════
 		function switchType(type, btn) {
 			currentType = type;
-			document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+			document.querySelectorAll('.nav-tab').forEach(t => {
+				t.classList.remove('active');
+				t.setAttribute('aria-pressed', 'false');
+			});
 			btn.classList.add('active');
+			btn.setAttribute('aria-pressed', 'true');
 			currentQuery = '';
 			document.getElementById('searchInput').value = '';
-			document.getElementById('searchClear').classList.remove('visible');
+			const clearBtn = document.getElementById('searchClear');
+			clearBtn.classList.remove('visible');
+			clearBtn.disabled = true;
+			clearBtn.setAttribute('aria-hidden', 'true');
 			goHome();
 		}
 
