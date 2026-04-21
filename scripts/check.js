@@ -16,6 +16,37 @@ assert(html.includes('</html>'), 'Missing closing </html> tag.');
 assert(html.includes('<body'), 'Missing opening <body> tag.');
 assert(html.includes('</body>'), 'Missing closing </body> tag.');
 
+const idMatches = [...html.matchAll(/\sid="([^"]+)"/g)];
+const idCounts = new Map();
+for (const match of idMatches) {
+  const id = match[1];
+  idCounts.set(id, (idCounts.get(id) || 0) + 1);
+}
+
+const duplicateIds = [...idCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
+assert(duplicateIds.length === 0, `Duplicate id attributes found: ${duplicateIds.join(', ')}`);
+
+const requiredIds = [
+  'setupOverlay',
+  'apiKeyInput',
+  'heroSection',
+  'heroInfo',
+  'mainContent',
+  'modalOverlay',
+  'modalContent',
+  'searchInput',
+  'searchClear',
+  'watchlistCount'
+];
+
+for (const id of requiredIds) {
+  assert(idCounts.has(id), `Missing required element id "${id}".`);
+}
+
+assert(/<nav[^>]*aria-label="[^"]+"/.test(html), 'Expected nav to include an aria-label.');
+assert(/<input[^>]*id="searchInput"[^>]*aria-label="[^"]+"/.test(html), 'Expected #searchInput to include an aria-label.');
+assert(/<div[^>]*id="modalContent"[^>]*role="dialog"[^>]*aria-modal="true"/.test(html), 'Expected #modalContent to have dialog semantics.');
+
 const scriptRegex = /<script>([\s\S]*?)<\/script>/g;
 const scriptBlocks = [...html.matchAll(scriptRegex)];
 assert(scriptBlocks.length > 0, 'No inline <script> blocks found.');

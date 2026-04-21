@@ -11,6 +11,8 @@ npm run check
 This verifies:
 - basic HTML document structure in `index.html`
 - inline script syntax validity in `index.html`
+- duplicate/missing critical element IDs
+- key accessibility semantics for navigation, search, and modal dialog
 
 Run end-to-end smoke and accessibility tests:
 
