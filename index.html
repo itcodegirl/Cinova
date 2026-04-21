@@ -292,6 +292,7 @@
 			margin-bottom: 20px;
 			display: -webkit-box;
 			-webkit-line-clamp: 3;
+			line-clamp: 3;
 			-webkit-box-orient: vertical;
 			overflow: hidden;
 		}
@@ -520,6 +521,25 @@
 			display: flex;
 			align-items: center;
 			gap: 8px;
+		}
+
+		.card-open {
+			margin-top: 8px;
+			padding: 0;
+			border: none;
+			background: transparent;
+			color: var(--text-secondary);
+			font-family: 'Outfit', sans-serif;
+			font-size: 12px;
+			font-weight: 500;
+			cursor: pointer;
+			transition: var(--transition);
+		}
+
+		.card-open:hover,
+		.card-open:focus-visible {
+			color: var(--accent);
+			outline: none;
 		}
 
 		/* ─── PAGINATION ─── */
@@ -1400,7 +1420,7 @@
 				: `<div class="no-poster">🎬</div>`;
 
 			return `
-                <div class="movie-card" style="animation-delay: ${index * 0.05}s" role="button" tabindex="0" onclick="openDetail(${item.id}, '${safeType}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDetail(${item.id}, '${safeType}')}">
+                <div class="movie-card" style="animation-delay: ${index * 0.05}s" onclick="openDetail(${item.id}, '${safeType}')">
                     <div class="card-poster">
                         ${poster}
                         ${item.vote_average ? `
@@ -1418,6 +1438,7 @@
                             <span>${year}</span>
                             <span>${escapeHtml(getGenreNames(item.genre_ids))}</span>
                         </div>
+						<button class="card-open" type="button" aria-label="View details for ${safeTitle}" onclick="event.stopPropagation(); openDetail(${item.id}, '${safeType}')">View details</button>
                     </div>
                 </div>
             `;
@@ -1559,7 +1580,7 @@
                     </div>
                     <div class="movie-grid">
                         ${watchlist.map((item, i) => `
-                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" role="button" tabindex="0" onclick="openDetail(${item.id}, '${escapeJsString(item.type)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDetail(${item.id}, '${escapeJsString(item.type)}')}">
+                            <div class="movie-card" style="animation-delay: ${i * 0.05}s" onclick="openDetail(${item.id}, '${escapeJsString(item.type)}')">
                                 <div class="card-poster">
                                     ${item.poster
 					? `<img src="${IMG_BASE}w342${item.poster}" alt="${escapeHtml(item.title)}" loading="lazy">`
@@ -1570,6 +1591,7 @@
                                 <div class="card-info">
                                     <div class="card-title">${escapeHtml(item.title)}</div>
                                     <div class="card-meta"><span>${item.type === 'tv' ? 'TV Show' : 'Movie'}</span></div>
+									<button class="card-open" type="button" aria-label="View details for ${escapeHtml(item.title)}" onclick="event.stopPropagation(); openDetail(${item.id}, '${escapeJsString(item.type)}')">View details</button>
                                 </div>
                             </div>
                         `).join('')}

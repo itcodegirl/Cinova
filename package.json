@@ -5,6 +5,14 @@
   "description": "Cinova static TMDB browser checks",
   "scripts": {
     "check": "node scripts/check.js",
-    "lint": "npm run check"
+    "lint": "npm run check",
+    "test": "playwright test",
+    "test:smoke": "playwright test tests/smoke.spec.js",
+    "test:a11y": "playwright test tests/a11y.spec.js",
+    "ci": "npm run check && npm test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.2",
+    "@playwright/test": "^1.59.1"
   }
 }
