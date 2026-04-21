@@ -167,7 +167,7 @@ test('search inline retry recovers after transient search failure', async ({ pag
 
   await page.goto(appUrl);
   await page.locator('#searchInput').fill('retry-query');
-  await page.evaluate(() => executeSearch());
+  await page.evaluate(() => window.executeSearch && window.executeSearch());
 
   await expect(page.getByText('Search failed: TMDB Error: 502')).toBeVisible();
   await page.getByRole('button', { name: 'Retry Search' }).click();

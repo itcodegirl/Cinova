@@ -23,7 +23,7 @@ test('search shows pagination and supports jumping to the last page', async ({ p
   const searchInput = page.locator('#searchInput');
 
   await searchInput.fill('space');
-  await page.evaluate(() => executeSearch());
+  await page.evaluate(() => window.executeSearch && window.executeSearch());
 
   await expect(page.locator('h2.section-title:has-text("Results for")')).toBeVisible();
   await expect(page.locator('.pagination .page-btn', { hasText: '20' })).toBeVisible();

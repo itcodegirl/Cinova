@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "types": ["node", "@playwright/test"],
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["scripts/**/*.js", "tests/**/*.js", "tests/**/*.d.ts"]
+}

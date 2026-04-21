@@ -14,6 +14,28 @@ const MIME_TYPES = {
   '.txt': 'text/plain; charset=utf-8'
 };
 
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "img-src 'self' data: https://image.tmdb.org",
+  "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "script-src 'self' 'unsafe-inline'",
+  "connect-src 'self' https://api.themoviedb.org https://image.tmdb.org",
+  "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+  'upgrade-insecure-requests'
+].join('; ');
+
+const SECURITY_HEADERS = {
+  'Content-Security-Policy': CONTENT_SECURITY_POLICY,
+  'Permissions-Policy': 'camera=(), geolocation=(), microphone=()',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Content-Type-Options': 'nosniff'
+};
+
 function parseCliArgs(args) {
   let host;
   let port;
@@ -71,24 +93,32 @@ function getLanUrls(port) {
 
 const { host, port } = getConfig();
 
+function getResponseHeaders(contentType) {
+  return {
+    ...SECURITY_HEADERS,
+    'Cache-Control': 'no-store',
+    'Content-Type': contentType
+  };
+}
+
 const server = http.createServer((req, res) => {
   const filePath = resolveRequestPath(req.url);
   if (!filePath) {
-    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(400, getResponseHeaders('text/plain; charset=utf-8'));
     res.end('Bad request path.');
     return;
   }
 
   fs.readFile(filePath, (error, data) => {
     if (error) {
-      res.writeHead(error.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(error.code === 'ENOENT' ? 404 : 500, getResponseHeaders('text/plain; charset=utf-8'));
       res.end(error.code === 'ENOENT' ? 'Not found.' : 'Server error.');
       return;
     }
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, getResponseHeaders(contentType));
     res.end(data);
   });
 });
