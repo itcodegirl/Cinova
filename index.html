@@ -1582,8 +1582,8 @@
 		// PAGINATION
 		// ══════════════════════════════════════════
 		function createPagination(current, total) {
-			const safeCurrent = Number(current) || 1;
 			const safeTotal = Math.max(1, Number(total) || 1);
+			const safeCurrent = Math.min(Math.max(1, Math.floor(Number(current) || 1)), safeTotal);
 			const maxPageButtons = 10;
 			const startPage = Math.max(1, Math.min(safeCurrent - 4, safeTotal - maxPageButtons + 1));
 			const endPage = Math.min(safeTotal, startPage + maxPageButtons - 1);
