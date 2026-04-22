@@ -3,6 +3,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { runEncodingCheck } = require('./check-encoding');
 
+const rootDir = path.resolve(__dirname, '..');
 const htmlPath = path.resolve(__dirname, '..', 'index.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
 const errors = [];
@@ -10,6 +11,24 @@ const encodingResult = runEncodingCheck();
 
 function assert(condition, message) {
   if (!condition) errors.push(message);
+}
+
+function getAttributeValue(tag, attributeName) {
+  const regex = new RegExp(`\\b${attributeName}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i');
+  const match = tag.match(regex);
+  if (!match) return '';
+  return match[1] || match[2] || '';
+}
+
+function resolveLocalPath(rawPath) {
+  if (!rawPath) return null;
+  if (/^(https?:)?\/\//i.test(rawPath) || rawPath.startsWith('data:')) return null;
+
+  const normalizedPath = rawPath.split('#')[0].split('?')[0];
+  const resolved = path.resolve(rootDir, normalizedPath);
+  const relativePath = path.relative(rootDir, resolved);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) return null;
+  return resolved;
 }
 
 for (const issue of encodingResult.issues) {
@@ -67,14 +86,46 @@ for (const linkTag of blankTargetLinks) {
   }
 }
 
-const scriptRegex = /<script>([\s\S]*?)<\/script>/g;
-const scriptBlocks = [...html.matchAll(scriptRegex)];
-assert(scriptBlocks.length > 0, 'No inline <script> blocks found.');
+const stylesheetTags = [...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)].map(match => match[0]);
+assert(stylesheetTags.length > 0, 'No stylesheet link tags found.');
 
-for (let i = 0; i < scriptBlocks.length; i += 1) {
-  const code = scriptBlocks[i][1];
+for (const stylesheetTag of stylesheetTags) {
+  const href = getAttributeValue(stylesheetTag, 'href');
+  assert(Boolean(href), `Stylesheet is missing href attribute: ${stylesheetTag}`);
+  if (!href) continue;
+
+  const stylesheetPath = resolveLocalPath(href);
+  if (!stylesheetPath) continue;
+  assert(fs.existsSync(stylesheetPath), `Missing stylesheet file referenced by index.html: ${href}`);
+}
+
+const scriptTags = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)];
+assert(scriptTags.length > 0, 'No script tags found.');
+
+for (let i = 0; i < scriptTags.length; i += 1) {
+  const fullTag = scriptTags[i][0];
+  const inlineCode = scriptTags[i][1];
+  const src = getAttributeValue(fullTag, 'src');
+
+  if (src) {
+    const scriptPath = resolveLocalPath(src);
+    if (scriptPath) {
+      assert(fs.existsSync(scriptPath), `Missing script file referenced by index.html: ${src}`);
+      if (!fs.existsSync(scriptPath)) continue;
+      try {
+        const scriptSource = fs.readFileSync(scriptPath, 'utf8');
+        new vm.Script(scriptSource, { filename: path.relative(rootDir, scriptPath) });
+      } catch (error) {
+        errors.push(`Linked script "${src}" has syntax errors: ${error.message}`);
+      }
+    }
+    continue;
+  }
+
+  if (!inlineCode.trim()) continue;
+
   try {
-    new vm.Script(code, { filename: `inline-script-${i + 1}.js` });
+    new vm.Script(inlineCode, { filename: `inline-script-${i + 1}.js` });
   } catch (error) {
     errors.push(`Inline script ${i + 1} has syntax errors: ${error.message}`);
   }
@@ -88,4 +139,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('Check passed: index.html structure and inline scripts look valid.');
+console.log('Check passed: index.html structure and linked assets look valid.');

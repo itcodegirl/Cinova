@@ -23,7 +23,7 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data: https://image.tmdb.org",
   "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
   "connect-src 'self' https://api.themoviedb.org https://image.tmdb.org",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   'upgrade-insecure-requests'

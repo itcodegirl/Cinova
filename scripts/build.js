@@ -3,34 +3,48 @@ const path = require('node:path');
 
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
-const buildFiles = ['index.html'];
+const buildItems = ['index.html', 'assets'];
 
 function cleanDistDirectory() {
   fs.rmSync(distDir, { recursive: true, force: true });
   fs.mkdirSync(distDir, { recursive: true });
 }
 
-function copyBuildFiles() {
-  const copiedFiles = [];
-  for (const relativeFile of buildFiles) {
-    const sourcePath = path.join(rootDir, relativeFile);
-    const destinationPath = path.join(distDir, relativeFile);
+function copyPathRecursive(sourcePath, destinationPath) {
+  const stat = fs.statSync(sourcePath);
+  if (stat.isDirectory()) {
+    fs.mkdirSync(destinationPath, { recursive: true });
+    for (const item of fs.readdirSync(sourcePath)) {
+      copyPathRecursive(path.join(sourcePath, item), path.join(destinationPath, item));
+    }
+    return;
+  }
+
+  fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
+  fs.copyFileSync(sourcePath, destinationPath);
+}
+
+function copyBuildItems() {
+  const copiedItems = [];
+  for (const relativePath of buildItems) {
+    const sourcePath = path.join(rootDir, relativePath);
+    const destinationPath = path.join(distDir, relativePath);
 
     if (!fs.existsSync(sourcePath)) {
-      throw new Error(`Missing build input: ${relativeFile}`);
+      throw new Error(`Missing build input: ${relativePath}`);
     }
 
-    fs.copyFileSync(sourcePath, destinationPath);
-    copiedFiles.push(relativeFile);
+    copyPathRecursive(sourcePath, destinationPath);
+    copiedItems.push(relativePath);
   }
-  return copiedFiles;
+  return copiedItems;
 }
 
 function runBuild() {
   cleanDistDirectory();
-  const copiedFiles = copyBuildFiles();
+  const copiedItems = copyBuildItems();
   console.log(`Build complete. Output directory: ${distDir}`);
-  console.log(`Copied files: ${copiedFiles.join(', ')}`);
+  console.log(`Copied files/directories: ${copiedItems.join(', ')}`);
 }
 
 if (require.main === module) {
