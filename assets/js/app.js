@@ -39,7 +39,7 @@
     requestTimeoutMs: REQUEST_TIMEOUT_MS,
     rateLimitMaxRetries: RATE_LIMIT_MAX_RETRIES,
     rateLimitRetryDelayMs: RATE_LIMIT_RETRY_DELAY_MS,
-    defaultCacheTtlMs: 180000
+    defaultCacheTtlMs: 300000
   });
 
   const setupErrorEl = document.getElementById('setupError');
@@ -52,12 +52,15 @@
   const searchInputEl = document.getElementById('searchInput');
   const searchClearBtnEl = document.getElementById('searchClear');
   const searchStatusEl = document.getElementById('searchStatus');
+  const searchHintEl = document.getElementById('searchHint');
   const heroSectionEl = document.getElementById('heroSection');
   const heroBackdropEl = document.getElementById('heroBackdrop');
   const heroInfoEl = document.getElementById('heroInfo');
   const watchlistCountEl = document.getElementById('watchlistCount');
 
   let isInitializing = false;
+  let currentView = 'home';
+  let isRestoringHistory = false;
 
   const watchlistController = watchlistModule.createWatchlistController({
     state,
@@ -71,6 +74,7 @@
     contentEl: modalContentEl,
     apiFetch: tmdbFetch,
     escapeHtml: render.escapeHtml,
+    renderModalError: render.renderModalError,
     getTmdbImageUrl,
     getYouTubeEmbedUrl,
     getCloseIcon: render.getCloseIcon
@@ -83,6 +87,16 @@
   function setSearchStatus(message = '') {
     if (!searchStatusEl) return;
     searchStatusEl.textContent = String(message || '');
+  }
+
+  function setSearchHintVisible(isVisible) {
+    if (!searchHintEl) return;
+    searchHintEl.classList.toggle('visible', isVisible);
+    searchHintEl.setAttribute('aria-hidden', String(!isVisible));
+  }
+
+  function scrollToTopSmooth() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function getActionId(actionEl) {
@@ -109,6 +123,73 @@
     const reversed = [...state.watchlist].reverse();
     const sameTypeSeed = reversed.find(item => item.type === state.currentType);
     return sameTypeSeed || reversed[0];
+  }
+
+  function syncTypeTabs() {
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      const isActive = tab.dataset.type === state.currentType;
+      tab.classList.toggle('active', isActive);
+      tab.setAttribute('aria-pressed', String(isActive));
+    });
+  }
+
+  function buildHistoryState(overrides = {}) {
+    return {
+      view: currentView,
+      type: state.currentType,
+      query: state.currentQuery,
+      page: state.currentPage,
+      modal: null,
+      ...overrides
+    };
+  }
+
+  function commitHistory(mode = 'push', overrides = {}) {
+    if (isRestoringHistory || mode === 'none') return;
+    const nextState = buildHistoryState(overrides);
+    if (mode === 'replace') {
+      history.replaceState(nextState, '', window.location.href);
+      return;
+    }
+    history.pushState(nextState, '', window.location.href);
+  }
+
+  function normalizeHistoryState(rawState) {
+    const stateLike = rawState && typeof rawState === 'object' ? rawState : {};
+    const view = ['home', 'watchlist', 'search'].includes(stateLike.view) ? stateLike.view : 'home';
+    const type = stateLike.type === 'tv' ? 'tv' : 'movie';
+    const query = typeof stateLike.query === 'string' ? stateLike.query : '';
+    const pageValue = Math.floor(Number(stateLike.page));
+    const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
+
+    let modal = null;
+    if (stateLike.modal && typeof stateLike.modal === 'object') {
+      const modalId = Number(stateLike.modal.id);
+      if (Number.isFinite(modalId)) {
+        modal = {
+          id: modalId,
+          type: stateLike.modal.type === 'tv' ? 'tv' : 'movie'
+        };
+      }
+    }
+
+    return {
+      view,
+      type,
+      query,
+      page,
+      modal
+    };
+  }
+
+  function handleSearchInputState() {
+    const hasValue = searchInputEl.value.length > 0;
+    searchClearBtnEl.classList.toggle('visible', hasValue);
+    searchClearBtnEl.disabled = !hasValue;
+    searchClearBtnEl.setAttribute('aria-hidden', String(!hasValue));
+
+    const shouldShowHint = document.activeElement === searchInputEl && !hasValue;
+    setSearchHintVisible(shouldShowHint);
   }
 
   function showSetupError(message) {
@@ -176,11 +257,9 @@
       }
 
       await loadGenres();
-      loadHero();
-      loadSections();
       watchlistController.updateCount();
       setupOverlayEl.style.display = 'none';
-      setSearchStatus(`Browsing ${getBrowseLabel()}.`);
+      goHome({ historyMode: 'replace', scroll: false });
     } catch (error) {
       console.error('Initialization failed:', error);
       showSetupError(getSetupMessageFromError(error));
@@ -192,7 +271,7 @@
 
   async function loadHero(forceRefresh = false) {
     try {
-      const data = await tmdbFetch(`/trending/${state.currentType}/week`, {}, { cacheTtlMs: 120000, forceRefresh });
+      const data = await tmdbFetch(`/trending/${state.currentType}/week`, {}, { cacheTtlMs: 300000, forceRefresh });
       const featured = (data.results || []).find(item => item.backdrop_path) || (data.results || [])[0];
       if (!featured) throw new Error('No featured title');
 
@@ -229,7 +308,7 @@
 
   async function loadRecommendationsIntoSection(sectionEl, seedItem, forceRefresh = false) {
     try {
-      const data = await tmdbFetch(`/${seedItem.type}/${seedItem.id}/recommendations`, {}, { cacheTtlMs: 180000, forceRefresh });
+      const data = await tmdbFetch(`/${seedItem.type}/${seedItem.id}/recommendations`, {}, { cacheTtlMs: 300000, forceRefresh });
       sectionEl.innerHTML = render.renderRecommendationContent(seedItem, data?.results || [], getRenderContext());
     } catch (error) {
       console.error('Failed to load personalized recommendations:', error);
@@ -241,26 +320,62 @@
     setMainBusy(true);
     mainContentEl.innerHTML = '';
 
+    const sectionEntries = [];
     const recommendationSeed = getRecommendationSeed();
     if (recommendationSeed) {
       const recommendationSectionEl = document.createElement('div');
       recommendationSectionEl.className = 'section section-recommendations';
+      recommendationSectionEl.innerHTML = render.renderSectionSkeleton('Recommended for You', 6);
       mainContentEl.appendChild(recommendationSectionEl);
-      await loadRecommendationsIntoSection(recommendationSectionEl, recommendationSeed, forceRefresh);
+      sectionEntries.push({
+        kind: 'recommendation',
+        sectionEl: recommendationSectionEl,
+        seedItem: recommendationSeed
+      });
     }
 
-    for (const section of getSectionConfigs()) {
+    for (const sectionConfig of getSectionConfigs()) {
       const sectionEl = document.createElement('div');
       sectionEl.className = 'section';
-      try {
-        const data = await tmdbFetch(section.endpoint, {}, { cacheTtlMs: 180000, forceRefresh });
-        sectionEl.innerHTML = render.renderSectionContent(section.title, data.results || [], getRenderContext());
-      } catch (error) {
-        console.error(`Failed to load ${section.title}:`, error);
-        sectionEl.innerHTML = render.renderSectionError(section.title, section.endpoint);
-      }
+      sectionEl.innerHTML = render.renderSectionSkeleton(sectionConfig.title);
       mainContentEl.appendChild(sectionEl);
+      sectionEntries.push({
+        kind: 'standard',
+        sectionEl,
+        sectionConfig
+      });
     }
+
+    const tasks = sectionEntries.map(async entry => {
+      if (entry.kind === 'recommendation') {
+        const data = await tmdbFetch(`/${entry.seedItem.type}/${entry.seedItem.id}/recommendations`, {}, { cacheTtlMs: 300000, forceRefresh });
+        return {
+          entry,
+          html: render.renderRecommendationContent(entry.seedItem, data?.results || [], getRenderContext())
+        };
+      }
+
+      const data = await tmdbFetch(entry.sectionConfig.endpoint, {}, { cacheTtlMs: 300000, forceRefresh });
+      return {
+        entry,
+        html: render.renderSectionContent(entry.sectionConfig.title, data.results || [], getRenderContext())
+      };
+    });
+
+    const settled = await Promise.allSettled(tasks);
+    settled.forEach((result, index) => {
+      const entry = sectionEntries[index];
+      if (result.status === 'fulfilled') {
+        entry.sectionEl.innerHTML = result.value.html;
+        return;
+      }
+
+      if (entry.kind === 'recommendation') {
+        entry.sectionEl.innerHTML = render.renderRecommendationError(entry.seedItem);
+      } else {
+        entry.sectionEl.innerHTML = render.renderSectionError(entry.sectionConfig.title, entry.sectionConfig.endpoint);
+      }
+    });
 
     setMainBusy(false);
   }
@@ -295,37 +410,32 @@
     }
   }
 
-  function handleSearchInputState() {
-    const hasValue = searchInputEl.value.length > 0;
-    searchClearBtnEl.classList.toggle('visible', hasValue);
-    searchClearBtnEl.disabled = !hasValue;
-    searchClearBtnEl.setAttribute('aria-hidden', String(!hasValue));
-  }
-
-  function executeSearch() {
+  function executeSearch({ historyMode = 'push', scroll = true, forceRefresh = false } = {}) {
     const query = searchInputEl.value.trim();
     if (!query) {
-      goHome();
+      goHome({ historyMode, scroll, forceRefresh });
       return;
     }
 
+    currentView = 'search';
     state.currentQuery = query;
     state.currentPage = 1;
+    if (scroll) scrollToTopSmooth();
     setSearchStatus(`Searching for ${state.currentQuery}.`);
-    performSearch();
+    setSearchHintVisible(false);
+    commitHistory(historyMode);
+    performSearch({ forceRefresh });
   }
 
   function clearSearch() {
     searchInputEl.value = '';
-    searchClearBtnEl.classList.remove('visible');
-    searchClearBtnEl.disabled = true;
-    searchClearBtnEl.setAttribute('aria-hidden', 'true');
+    handleSearchInputState();
     state.currentQuery = '';
     setSearchStatus('');
-    goHome();
+    goHome({ historyMode: 'push', scroll: true });
   }
 
-  async function performSearch(forceRefresh = false) {
+  async function performSearch({ forceRefresh = false } = {}) {
     setMainBusy(true);
     heroSectionEl.style.display = 'none';
 
@@ -358,7 +468,7 @@
 
   function retrySearch() {
     if (!state.currentQuery) return;
-    performSearch(true);
+    performSearch({ forceRefresh: true });
   }
 
   function toggleWatchlist(actionEl) {
@@ -378,7 +488,9 @@
     });
   }
 
-  function showWatchlist() {
+  function showWatchlist({ historyMode = 'push', scroll = true } = {}) {
+    currentView = 'watchlist';
+    if (scroll) scrollToTopSmooth();
     setMainBusy(true);
     heroSectionEl.style.display = 'none';
 
@@ -390,17 +502,19 @@
       `;
       setSearchStatus('Your watchlist is empty.');
       setMainBusy(false);
+      commitHistory(historyMode);
       return;
     }
 
     mainContentEl.innerHTML = render.renderWatchlistSection(watchlistController.getItems(), getRenderContext());
     setSearchStatus(`Showing ${state.watchlist.length} watchlist item${state.watchlist.length === 1 ? '' : 's'}.`);
     setMainBusy(false);
+    commitHistory(historyMode);
   }
 
   function removeFromWatchlist(id) {
     watchlistController.remove(id);
-    showWatchlist();
+    showWatchlist({ historyMode: 'replace', scroll: false });
   }
 
   function goToPage(page) {
@@ -408,38 +522,86 @@
     if (!Number.isFinite(nextPage)) return;
     if (nextPage < 1 || nextPage > state.searchTotalPages || nextPage === state.currentPage) return;
 
+    currentView = 'search';
     state.currentPage = nextPage;
+    scrollToTopSmooth();
+    commitHistory('push');
     performSearch();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function switchType(type, buttonEl) {
+  function switchType(type) {
     state.currentType = type === 'tv' ? 'tv' : 'movie';
-
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-      tab.classList.remove('active');
-      tab.setAttribute('aria-pressed', 'false');
-    });
-
-    buttonEl.classList.add('active');
-    buttonEl.setAttribute('aria-pressed', 'true');
-
+    syncTypeTabs();
     state.currentQuery = '';
     searchInputEl.value = '';
-    searchClearBtnEl.classList.remove('visible');
-    searchClearBtnEl.disabled = true;
-    searchClearBtnEl.setAttribute('aria-hidden', 'true');
-
-    goHome();
+    handleSearchInputState();
+    goHome({ historyMode: 'push', scroll: true });
   }
 
-  function goHome() {
+  function goHome({ historyMode = 'push', scroll = true, forceRefresh = false } = {}) {
+    currentView = 'home';
+    if (scroll) scrollToTopSmooth();
     heroSectionEl.style.display = 'block';
     state.currentQuery = '';
     state.currentPage = 1;
-    loadHero();
-    loadSections();
+    searchInputEl.value = '';
+    handleSearchInputState();
+    loadHero(forceRefresh);
+    loadSections(forceRefresh);
     setSearchStatus(`Browsing ${getBrowseLabel()}.`);
+    commitHistory(historyMode);
+  }
+
+  function openDetail(id, type, { historyMode = 'push' } = {}) {
+    const mediaType = type === 'tv' ? 'tv' : 'movie';
+    commitHistory(historyMode, {
+      modal: {
+        id,
+        type: mediaType
+      }
+    });
+    modalController.openDetail(id, mediaType);
+  }
+
+  function closeModal({ fromHistory = false } = {}) {
+    modalController.closeModal();
+    if (!fromHistory) {
+      const historyState = normalizeHistoryState(history.state);
+      if (historyState.modal) {
+        commitHistory('replace', { modal: null });
+      }
+    }
+  }
+
+  function applyHistoryState(rawState) {
+    const nextState = normalizeHistoryState(rawState);
+    state.currentType = nextState.type;
+    syncTypeTabs();
+
+    if (nextState.view === 'search') {
+      currentView = 'search';
+      state.currentQuery = nextState.query;
+      state.currentPage = nextState.page;
+      searchInputEl.value = state.currentQuery;
+      handleSearchInputState();
+      setSearchHintVisible(false);
+      performSearch();
+    } else if (nextState.view === 'watchlist') {
+      state.currentQuery = '';
+      state.currentPage = 1;
+      searchInputEl.value = '';
+      handleSearchInputState();
+      setSearchHintVisible(false);
+      showWatchlist({ historyMode: 'none', scroll: false });
+    } else {
+      goHome({ historyMode: 'none', scroll: false });
+    }
+
+    if (nextState.modal) {
+      openDetail(nextState.modal.id, nextState.modal.type, { historyMode: 'none' });
+    } else {
+      closeModal({ fromHistory: true });
+    }
   }
 
   function handleAction(actionEl, event) {
@@ -452,7 +614,7 @@
         goHome();
         break;
       case 'switch-type':
-        switchType(actionEl.dataset.type, actionEl);
+        switchType(actionEl.dataset.type);
         break;
       case 'show-watchlist':
         showWatchlist();
@@ -464,7 +626,7 @@
         const id = getActionId(actionEl);
         const type = actionEl.dataset.type || state.currentType;
         if (id !== null) {
-          modalController.openDetail(id, type);
+          openDetail(id, type);
         }
         break;
       }
@@ -497,7 +659,7 @@
         retrySetup();
         break;
       case 'close-modal':
-        modalController.closeModal();
+        closeModal();
         break;
       default:
         break;
@@ -513,7 +675,7 @@
 
     modalOverlayEl.addEventListener('click', event => {
       if (event.target === modalOverlayEl) {
-        modalController.closeModal();
+        closeModal();
       }
     });
 
@@ -523,15 +685,33 @@
     });
 
     searchInputEl.addEventListener('input', handleSearchInputState);
+    searchInputEl.addEventListener('focus', handleSearchInputState);
+    searchInputEl.addEventListener('blur', () => {
+      setSearchHintVisible(false);
+    });
     searchInputEl.addEventListener('keydown', event => {
       if (event.key === 'Enter') {
         event.preventDefault();
+        setSearchHintVisible(false);
         executeSearch();
       }
     });
 
     document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && modalOverlayEl.classList.contains('open')) {
+        closeModal();
+        return;
+      }
       modalController.handleDocumentKeydown(event);
+    });
+
+    window.addEventListener('popstate', event => {
+      isRestoringHistory = true;
+      try {
+        applyHistoryState(event.state);
+      } finally {
+        isRestoringHistory = false;
+      }
     });
   }
 

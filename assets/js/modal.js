@@ -6,6 +6,7 @@
     contentEl,
     apiFetch,
     escapeHtml,
+    renderModalError,
     getTmdbImageUrl,
     getYouTubeEmbedUrl,
     getCloseIcon
@@ -150,7 +151,11 @@
         contentEl.removeAttribute('aria-labelledby');
         contentEl.removeAttribute('aria-describedby');
         contentEl.setAttribute('aria-label', 'Error loading title details');
-        contentEl.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(error.message)}</p><button class="modal-close" aria-label="Close details modal" data-action="close-modal" type="button" style="position:relative; margin-top:16px;">${typeof getCloseIcon === 'function' ? getCloseIcon() : '&times;'}</button></div>`;
+        if (typeof renderModalError === 'function') {
+          contentEl.innerHTML = renderModalError(error.message, typeof getCloseIcon === 'function' ? getCloseIcon() : '&times;');
+        } else {
+          contentEl.innerHTML = `<div class="modal-error-state"><p class="modal-error-title">Failed to load details</p><p class="modal-error-message">${escapeHtml(error.message)}</p><button class="modal-close modal-error-close" aria-label="Close details modal" data-action="close-modal" type="button">${typeof getCloseIcon === 'function' ? getCloseIcon() : '&times;'}</button></div>`;
+        }
         focusModalContent();
       }
     }
@@ -166,10 +171,6 @@
     }
 
     function handleDocumentKeydown(event) {
-      if (event.key === 'Escape' && overlayEl.classList.contains('open')) {
-        closeModal();
-        return;
-      }
       trapFocus(event);
     }
 

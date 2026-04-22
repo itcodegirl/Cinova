@@ -20,9 +20,9 @@
   function getHeartIcon(isSaved = false) {
     const heartPath = 'M12.1 20.3l-.1.1-.1-.1C7.14 16.24 4 13.39 4 9.99 4 7.5 5.99 5.5 8.5 5.5c1.54 0 3.04.73 4 1.87.96-1.14 2.46-1.87 4-1.87 2.51 0 4.5 2 4.5 4.49 0 3.4-3.14 6.25-7.9 10.31z';
     if (isSaved) {
-      return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${heartPath}" /></svg>`;
+      return `<span class="heart-icon-wrap"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${heartPath}" /></svg></span>`;
     }
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${heartPath}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+    return `<span class="heart-icon-wrap"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${heartPath}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg></span>`;
   }
 
   function getCloseIcon() {
@@ -56,6 +56,27 @@
       <div class="empty-state" role="status" aria-live="polite">
         <h3>${escapeHtml(title)}</h3>
         <p>${escapeHtml(message)}</p>
+      </div>
+    `;
+  }
+
+  function renderSectionSkeleton(title, cardCount = 8) {
+    const skeletonCards = Array.from({ length: cardCount }, (_, index) => `
+      <div class="movie-card skeleton-card" style="animation-delay: ${index * 0.03}s">
+        <div class="card-poster"></div>
+        <div class="card-info">
+          <div class="card-title"></div>
+          <div class="card-meta"></div>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="section-header">
+        <h2 class="section-title section-title-decorated">${escapeHtml(title)}</h2>
+      </div>
+      <div class="movie-grid">
+        ${skeletonCards}
       </div>
     `;
   }
@@ -225,6 +246,18 @@
     `;
   }
 
+  function renderModalError(errorMessage, closeIconMarkup) {
+    return `
+      <div class="modal-error-state">
+        <p class="modal-error-title">Failed to load details</p>
+        <p class="modal-error-message">${escapeHtml(errorMessage)}</p>
+        <button class="modal-close modal-error-close" aria-label="Close details modal" data-action="close-modal" type="button">
+          ${closeIconMarkup || '&times;'}
+        </button>
+      </div>
+    `;
+  }
+
   function renderWatchlistSection(watchlist, context) {
     return `
       <div class="section" style="margin-top: 32px;">
@@ -306,6 +339,8 @@
     renderHeroError,
     renderSearchResults,
     renderSearchError,
+    renderSectionSkeleton,
+    renderModalError,
     renderWatchlistSection,
     createPagination
   };
