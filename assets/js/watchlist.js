@@ -1,7 +1,12 @@
 (() => {
   'use strict';
 
-  function createWatchlistController({ state, persistWatchlist, countElement }) {
+  function createWatchlistController({
+    state,
+    persistWatchlist,
+    countElement,
+    getHeartIcon
+  }) {
     function updateCount() {
       if (!countElement) return;
       countElement.textContent = state.watchlist.length;
@@ -17,7 +22,7 @@
         state.watchlist.splice(existingIndex, 1);
         if (buttonEl) {
           buttonEl.classList.remove('saved');
-          buttonEl.innerHTML = '&#9825;';
+          buttonEl.innerHTML = typeof getHeartIcon === 'function' ? getHeartIcon(false) : '';
           buttonEl.setAttribute('aria-pressed', 'false');
           buttonEl.setAttribute('aria-label', `Add ${itemTitle} to watchlist`);
         }
@@ -30,7 +35,7 @@
         });
         if (buttonEl) {
           buttonEl.classList.add('saved');
-          buttonEl.innerHTML = '&#9829;';
+          buttonEl.innerHTML = typeof getHeartIcon === 'function' ? getHeartIcon(true) : '';
           buttonEl.setAttribute('aria-pressed', 'true');
           buttonEl.setAttribute('aria-label', `Remove ${itemTitle} from watchlist`);
         }

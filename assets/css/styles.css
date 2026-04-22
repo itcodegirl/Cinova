@@ -617,7 +617,7 @@
 			justify-content: center;
 			cursor: pointer;
 			transition: var(--transition);
-			font-size: 16px;
+			padding: 0;
 		}
 
 		.card-watchlist:hover,
@@ -625,6 +625,14 @@
 			background: var(--accent);
 			border-color: var(--accent);
 			color: white;
+		}
+
+		.card-watchlist svg {
+			width: 16px;
+			height: 16px;
+			display: block;
+			pointer-events: none;
+			fill: currentColor;
 		}
 
 		.card-info {
@@ -812,7 +820,6 @@
 			background: rgba(7, 6, 11, 0.7);
 			backdrop-filter: blur(8px);
 			color: var(--text-primary);
-			font-size: 18px;
 			cursor: pointer;
 			display: flex;
 			align-items: center;
@@ -822,6 +829,13 @@
 
 		.modal-close:hover {
 			background: var(--accent);
+		}
+
+		.modal-close svg {
+			width: 16px;
+			height: 16px;
+			display: block;
+			pointer-events: none;
 		}
 
 		.modal-body {
@@ -1014,6 +1028,13 @@
 			color: var(--text-primary);
 		}
 
+		.nav-watchlist-icon {
+			width: 14px;
+			height: 14px;
+			display: block;
+			flex-shrink: 0;
+		}
+
 		/* ════════════════════════════════════════
            LOADING SKELETON
            ════════════════════════════════════════ */
@@ -1073,7 +1094,12 @@
 			align-items: center;
 			justify-content: center;
 			margin: 0 auto 24px;
-			font-size: 28px;
+		}
+
+		.setup-icon svg {
+			width: 30px;
+			height: 30px;
+			fill: var(--accent);
 		}
 
 		.setup-box h1 {

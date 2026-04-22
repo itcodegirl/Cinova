@@ -17,6 +17,23 @@
       .join('');
   }
 
+  function getHeartIcon(isSaved = false) {
+    const heartPath = 'M12.1 20.3l-.1.1-.1-.1C7.14 16.24 4 13.39 4 9.99 4 7.5 5.99 5.5 8.5 5.5c1.54 0 3.04.73 4 1.87.96-1.14 2.46-1.87 4-1.87 2.51 0 4.5 2 4.5 4.49 0 3.4-3.14 6.25-7.9 10.31z';
+    if (isSaved) {
+      return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${heartPath}" /></svg>`;
+    }
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${heartPath}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+  }
+
+  function getCloseIcon() {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
+        <path d="M8.5 8.5l7 7m0-7l-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </svg>
+    `;
+  }
+
   function getGenreNames(ids, genreMap = {}) {
     return (ids || [])
       .slice(0, 2)
@@ -66,7 +83,7 @@
             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             ${typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : 'N/A'}
           </div>` : ''}
-          <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" aria-pressed="${isSaved ? 'true' : 'false'}" data-action="toggle-watchlist" data-id="${item.id}" data-type="${safeType}" data-title="${safeTitle}" data-poster="${escapeHtml(safePosterPath)}" type="button">${isSaved ? '&#9829;' : '&#9825;'}</button>
+          <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" aria-pressed="${isSaved ? 'true' : 'false'}" data-action="toggle-watchlist" data-id="${item.id}" data-type="${safeType}" data-title="${safeTitle}" data-poster="${escapeHtml(safePosterPath)}" type="button">${getHeartIcon(isSaved)}</button>
         </div>
         <div class="card-info">
           <div class="card-title">${safeTitle}</div>
@@ -224,7 +241,7 @@
                   ${itemPosterUrl
                     ? `<img src="${itemPosterUrl}" alt="${escapeHtml(item.title)}" loading="lazy">`
                     : '<div class="no-poster">&#127909;</div>'}
-                  <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" aria-pressed="true" data-action="remove-watchlist" data-id="${item.id}" type="button">&#9829;</button>
+                  <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" aria-pressed="true" data-action="remove-watchlist" data-id="${item.id}" type="button">${getHeartIcon(true)}</button>
                 </div>
                 <div class="card-info">
                   <div class="card-title">${escapeHtml(item.title)}</div>
@@ -275,6 +292,8 @@
   window.CinovaRender = {
     escapeHtml,
     buildDataAttributes,
+    getHeartIcon,
+    getCloseIcon,
     getGenreNames,
     renderInlineError,
     renderEmptyState,

@@ -21,7 +21,12 @@
 	<!-- ═══ CONFIG SETUP ═══ -->
 	<div class="setup-overlay" id="setupOverlay">
 		<div class="setup-box">
-			<div class="setup-icon">C</div>
+			<div class="setup-icon" aria-hidden="true">
+				<svg viewBox="0 0 24 24">
+					<path
+						d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
+				</svg>
+			</div>
 			<h1>Set up Cino<em style="color:var(--accent); font-style:italic;">va</em></h1>
 			<p>Cinova now uses a local config file for TMDB access instead of pasting tokens in-app.</p>
 			<div class="setup-steps">
@@ -66,7 +71,10 @@
 		</div>
 
 		<button class="nav-watchlist" type="button" aria-label="Open watchlist" data-action="show-watchlist">
-			♥ Watchlist
+			<svg class="nav-watchlist-icon" viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M12.1 20.3l-.1.1-.1-.1C7.14 16.24 4 13.39 4 9.99 4 7.5 5.99 5.5 8.5 5.5c1.54 0 3.04.73 4 1.87.96-1.14 2.46-1.87 4-1.87 2.51 0 4.5 2 4.5 4.49 0 3.4-3.14 6.25-7.9 10.31z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+			</svg>
+			Watchlist
 			<span class="watchlist-count" id="watchlistCount" aria-live="polite" aria-atomic="true">0</span>
 		</button>
 	</nav>

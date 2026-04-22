@@ -62,7 +62,8 @@
   const watchlistController = watchlistModule.createWatchlistController({
     state,
     persistWatchlist,
-    countElement: watchlistCountEl
+    countElement: watchlistCountEl,
+    getHeartIcon: render.getHeartIcon
   });
 
   const modalController = modalModule.createModalController({
@@ -71,7 +72,8 @@
     apiFetch: tmdbFetch,
     escapeHtml: render.escapeHtml,
     getTmdbImageUrl,
-    getYouTubeEmbedUrl
+    getYouTubeEmbedUrl,
+    getCloseIcon: render.getCloseIcon
   });
 
   function setMainBusy(isBusy) {
