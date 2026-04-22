@@ -147,6 +147,8 @@
 			flex: 1;
 			max-width: 480px;
 			margin: 0 32px;
+			display: flex;
+			flex-direction: column;
 		}
 
 		.search-box {
@@ -206,6 +208,23 @@
 
 		.search-box .search-clear.visible {
 			display: flex;
+		}
+
+		.search-hint {
+			min-height: 16px;
+			margin-top: 6px;
+			color: var(--text-muted);
+			font-size: 11px;
+			line-height: 1.4;
+			opacity: 0;
+			transform: translateY(-2px);
+			transition: var(--transition);
+			pointer-events: none;
+		}
+
+		.search-hint.visible {
+			opacity: 1;
+			transform: translateY(0);
 		}
 
 		.nav-tabs {
@@ -612,15 +631,15 @@
 
 		.card-watchlist {
 			position: absolute;
-			top: 10px;
-			left: 10px;
-			background: rgba(7, 6, 11, 0.85);
-			backdrop-filter: blur(8px);
-			border: 1px solid var(--border);
+			top: 4px;
+			left: 4px;
+			background: transparent;
+			backdrop-filter: none;
+			border: none;
 			color: var(--text-secondary);
-			width: 30px;
-			height: 30px;
-			border-radius: 50%;
+			width: 44px;
+			height: 44px;
+			border-radius: var(--radius-pill);
 			display: flex;
 			align-items: center;
 			justify-content: center;
@@ -629,8 +648,21 @@
 			padding: 0;
 		}
 
-		.card-watchlist:hover,
-		.card-watchlist.saved {
+		.card-watchlist .heart-icon-wrap {
+			width: 30px;
+			height: 30px;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: rgba(7, 6, 11, 0.85);
+			backdrop-filter: blur(8px);
+			border: 1px solid var(--border);
+			transition: var(--transition);
+		}
+
+		.card-watchlist:hover .heart-icon-wrap,
+		.card-watchlist.saved .heart-icon-wrap {
 			background: var(--accent);
 			border-color: var(--accent);
 			color: white;
@@ -845,6 +877,28 @@
 			height: 16px;
 			display: block;
 			pointer-events: none;
+		}
+
+		.modal-error-state {
+			padding: 40px;
+			text-align: center;
+		}
+
+		.modal-error-title {
+			color: var(--accent);
+			margin-bottom: 12px;
+			font-weight: 600;
+		}
+
+		.modal-error-message {
+			color: var(--text-muted);
+			font-size: 13px;
+			line-height: 1.6;
+		}
+
+		.modal-error-close {
+			position: relative;
+			margin: 16px auto 0;
 		}
 
 		.modal-body {
@@ -1231,6 +1285,10 @@
 			.movie-grid {
 				grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
 				gap: 20px;
+			}
+
+			.search-hint {
+				font-size: 10px;
 			}
 		}
 
