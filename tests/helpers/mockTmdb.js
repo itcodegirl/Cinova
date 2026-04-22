@@ -113,6 +113,19 @@ async function mockTmdb(page) {
       });
     }
 
+    const recommendationsMatch = path.match(/^\/3\/(movie|tv)\/(\d+)\/recommendations$/);
+    if (recommendationsMatch) {
+      const [, type, id] = recommendationsMatch;
+      const baseId = Number(id) * 10;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          results: Array.from({ length: 12 }, (_, index) => movieResult(baseId + index + 1, type))
+        })
+      });
+    }
+
     const detailMatch = path.match(/^\/3\/(movie|tv)\/(\d+)$/);
     if (detailMatch) {
       const [, type, id] = detailMatch;

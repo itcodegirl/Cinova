@@ -229,6 +229,9 @@
 				case 'retry-section':
 					retrySection(actionEl.dataset.endpoint || '', actionEl.dataset.title || '', actionEl);
 					break;
+				case 'retry-recommendations':
+					retryRecommendations(actionEl);
+					break;
 				case 'go-page':
 					goToPage(actionEl.dataset.page);
 					break;
@@ -461,6 +464,71 @@
 		// ══════════════════════════════════════════
 		// HERO
 		// ══════════════════════════════════════════
+		function getRecommendationSeed() {
+			if (watchlist.length === 0) return null;
+			const reversed = [...watchlist].reverse();
+			const sameTypeSeed = reversed.find(item => item.type === currentType);
+			return sameTypeSeed || reversed[0];
+		}
+
+		function normalizeRecommendationResults(results, mediaType) {
+			if (!Array.isArray(results)) return [];
+			return results
+				.filter(item => item && typeof item === 'object')
+				.map(item => ({ ...item, media_type: item.media_type || mediaType }))
+				.filter(item => Number.isFinite(Number(item.id)));
+		}
+
+		function renderRecommendationContent(seedItem, results) {
+			const recommendationItems = normalizeRecommendationResults(results, seedItem.type).slice(0, 12);
+			const sectionBody = recommendationItems.length
+				? recommendationItems.map((item, i) => createCard(item, i)).join('')
+				: renderEmptyState(
+					'No similar titles yet',
+					`TMDB does not have recommendations for ${seedItem.title} right now.`
+				);
+			const watchlistLabel = seedItem.type === 'tv' ? 'From your TV watchlist' : 'From your movie watchlist';
+			return `
+				<div class="section-header recommendation-header">
+					<div>
+						<h2 class="section-title">Recommended for You <span>&rsaquo;</span></h2>
+						<p class="recommendation-context">Because you saved <strong>${escapeHtml(seedItem.title)}</strong></p>
+					</div>
+					<span class="recommendation-pill">${watchlistLabel}</span>
+				</div>
+				<div class="movie-grid">
+					${sectionBody}
+				</div>
+			`;
+		}
+
+		function renderRecommendationError(seedItem) {
+			return `
+				<div class="section-header recommendation-header">
+					<div>
+						<h2 class="section-title">Recommended for You <span>&rsaquo;</span></h2>
+						<p class="recommendation-context">Because you saved <strong>${escapeHtml(seedItem.title)}</strong></p>
+					</div>
+				</div>
+				${renderInlineError(
+				'Could not load your personalized recommendations.',
+				'Retry Recommendations',
+				'retry-recommendations',
+				{ id: seedItem.id, type: seedItem.type, title: seedItem.title }
+			)}
+			`;
+		}
+
+		async function loadRecommendationsIntoSection(sectionEl, seedItem) {
+			try {
+				const data = await tmdbFetch(`/${seedItem.type}/${seedItem.id}/recommendations`);
+				sectionEl.innerHTML = renderRecommendationContent(seedItem, data?.results || []);
+			} catch (error) {
+				console.error('Failed to load personalized recommendations:', error);
+				sectionEl.innerHTML = renderRecommendationError(seedItem);
+			}
+		}
+
 		async function loadHero() {
 			const backdrop = document.getElementById('heroBackdrop');
 			const heroInfo = document.getElementById('heroInfo');
@@ -508,6 +576,14 @@
 			setMainBusy(true);
 			mainContentEl.innerHTML = '';
 
+			const recommendationSeed = getRecommendationSeed();
+			if (recommendationSeed) {
+				const recommendationSectionEl = document.createElement('div');
+				recommendationSectionEl.className = 'section section-recommendations';
+				mainContentEl.appendChild(recommendationSectionEl);
+				await loadRecommendationsIntoSection(recommendationSectionEl, recommendationSeed);
+			}
+
 			const sections = currentType === 'movie'
 				? [
 					{ title: 'Now Playing', endpoint: '/movie/now_playing' },
@@ -535,6 +611,19 @@
 				mainContentEl.appendChild(sectionEl);
 			}
 			setMainBusy(false);
+		}
+
+		async function retryRecommendations(triggerEl) {
+			const id = Number(triggerEl?.dataset?.id);
+			const type = triggerEl?.dataset?.type === 'tv' ? 'tv' : 'movie';
+			const title = String(triggerEl?.dataset?.title || 'Saved title');
+			const sectionEl = triggerEl?.closest?.('.section');
+			if (!sectionEl || !Number.isFinite(id)) {
+				await loadSections();
+				return;
+			}
+
+			await loadRecommendationsIntoSection(sectionEl, { id, type, title, poster: '' });
 		}
 
 		async function retrySection(endpoint, title, triggerEl) {
