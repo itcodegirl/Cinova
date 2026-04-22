@@ -105,7 +105,7 @@
 
     return `
       <div class="section-header">
-        <h2 class="section-title">${escapeHtml(title)} <span>&rsaquo;</span></h2>
+        <h2 class="section-title section-title-decorated">${escapeHtml(title)}</h2>
       </div>
       <div class="movie-grid">
         ${sectionBody}
@@ -117,7 +117,7 @@
     const safeTitle = escapeHtml(title);
     return `
       <div class="section-header">
-        <h2 class="section-title">${safeTitle} <span>&rsaquo;</span></h2>
+        <h2 class="section-title section-title-decorated">${safeTitle}</h2>
       </div>
       ${renderInlineError(`Could not load ${title}.`, 'Retry Section', 'retry-section', { endpoint, title })}
     `;
@@ -141,7 +141,7 @@
     return `
       <div class="section-header recommendation-header">
         <div>
-          <h2 class="section-title">Recommended for You <span>&rsaquo;</span></h2>
+          <h2 class="section-title section-title-decorated">Recommended for You</h2>
           <p class="recommendation-context">Because you saved <strong>${escapeHtml(seedItem.title)}</strong></p>
         </div>
         <span class="recommendation-pill">${watchlistLabel}</span>
@@ -156,7 +156,7 @@
     return `
       <div class="section-header recommendation-header">
         <div>
-          <h2 class="section-title">Recommended for You <span>&rsaquo;</span></h2>
+          <h2 class="section-title section-title-decorated">Recommended for You</h2>
           <p class="recommendation-context">Because you saved <strong>${escapeHtml(seedItem.title)}</strong></p>
         </div>
       </div>

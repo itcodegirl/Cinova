@@ -57,6 +57,7 @@
 			--text-secondary: #9490a5;
 			--text-muted: #5c5872;
 			--accent: #e8364e;
+			--accent-dark: #d42e44;
 			--accent-soft: rgba(232, 54, 78, 0.15);
 			--accent-glow: rgba(232, 54, 78, 0.4);
 			--gold: #f5c518;
@@ -67,6 +68,7 @@
 			--radius-md: 12px;
 			--radius-lg: 16px;
 			--radius-xl: 20px;
+			--radius-pill: 999px;
 			--shadow-card: 0 4px 30px rgba(0, 0, 0, 0.5);
 			--shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.7);
 			--transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -157,7 +159,7 @@
 			padding: 10px 16px 10px 42px;
 			background: var(--bg-input);
 			border: 1px solid var(--border);
-			border-radius: 40px;
+			border-radius: var(--radius-pill);
 			color: var(--text-primary);
 			font-family: 'Outfit', sans-serif;
 			font-size: 14px;
@@ -213,7 +215,7 @@
 
 		.nav-tab {
 			padding: 8px 18px;
-			border-radius: 40px;
+			border-radius: var(--radius-pill);
 			border: none;
 			background: transparent;
 			color: var(--text-secondary);
@@ -352,7 +354,7 @@
 
 		.hero-btn {
 			padding: 10px 24px;
-			border-radius: 40px;
+			border-radius: var(--radius-pill);
 			border: none;
 			background: var(--accent);
 			color: white;
@@ -367,7 +369,7 @@
 		}
 
 		.hero-btn:hover {
-			background: #d42e44;
+			background: var(--accent-dark);
 			transform: translateY(-1px);
 			box-shadow: 0 6px 24px var(--accent-glow);
 		}
@@ -425,7 +427,7 @@
 			display: inline-flex;
 			align-items: center;
 			padding: 6px 12px;
-			border-radius: 999px;
+			border-radius: var(--radius-pill);
 			background: rgba(232, 54, 78, 0.16);
 			border: 1px solid rgba(232, 54, 78, 0.35);
 			color: #ffd8de;
@@ -438,6 +440,11 @@
 			font-size: 22px;
 			font-weight: 700;
 			letter-spacing: -0.3px;
+		}
+
+		.section-title-decorated::after {
+			content: " \203A";
+			color: var(--accent);
 		}
 
 		.section-title span {
@@ -1009,7 +1016,7 @@
 		.nav-watchlist {
 			position: relative;
 			padding: 8px 16px;
-			border-radius: 40px;
+			border-radius: var(--radius-pill);
 			border: 1px solid var(--border);
 			background: var(--bg-input);
 			color: var(--text-secondary);
@@ -1130,7 +1137,7 @@
 		}
 
 		.setup-box button:hover {
-			background: #d42e44;
+			background: var(--accent-dark);
 		}
 
 		.setup-box button:disabled {
