@@ -53,9 +53,8 @@ assert(duplicateIds.length === 0, `Duplicate id attributes found: ${duplicateIds
 
 const requiredIds = [
   'setupOverlay',
-  'apiKeyInput',
-  'setupSubmitBtn',
   'setupRetryBtn',
+  'setupError',
   'heroSection',
   'heroInfo',
   'mainContent',
@@ -106,11 +105,12 @@ for (let i = 0; i < scriptTags.length; i += 1) {
   const fullTag = scriptTags[i][0];
   const inlineCode = scriptTags[i][1];
   const src = getAttributeValue(fullTag, 'src');
+  const isOptional = getAttributeValue(fullTag, 'data-optional') === 'true';
 
   if (src) {
     const scriptPath = resolveLocalPath(src);
     if (scriptPath) {
-      assert(fs.existsSync(scriptPath), `Missing script file referenced by index.html: ${src}`);
+      assert(isOptional || fs.existsSync(scriptPath), `Missing script file referenced by index.html: ${src}`);
       if (!fs.existsSync(scriptPath)) continue;
       try {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');

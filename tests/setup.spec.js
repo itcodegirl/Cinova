@@ -5,259 +5,103 @@ const { mockTmdb } = require('./helpers/mockTmdb');
 
 const appUrl = pathToFileURL(path.resolve(__dirname, '..', 'index.html')).href;
 
-test('shows validation error when setup token is empty', async ({ page }) => {
+test('shows setup guidance when no TMDB token is configured', async ({ page }) => {
   await page.addInitScript(() => {
+    delete window.CINOVA_CONFIG;
     localStorage.removeItem('cinova_tmdb_token');
+    localStorage.removeItem('screenscout_token');
   });
 
   await page.goto(appUrl);
 
   await expect(page.locator('#setupOverlay')).toBeVisible();
-  await page.locator('#setupSubmitBtn').click();
-  await expect(page.locator('#setupError')).toHaveText('Please enter your TMDB API token.');
+  await expect(page.locator('#setupError')).toContainText('No TMDB token found');
+  await expect(page.locator('#setupRetryBtn')).toBeVisible();
 });
 
-test('keeps setup overlay open when stored token is invalid', async ({ page }) => {
+test('initializes successfully when CINOVA_CONFIG provides a token', async ({ page }) => {
+  await mockTmdb(page);
+  await page.addInitScript(() => {
+    window.CINOVA_CONFIG = { tmdbReadAccessToken: 'test-token' };
+  });
+
+  await page.goto(appUrl);
+
+  await expect(page.locator('#setupOverlay')).toBeHidden();
+  await expect(page.locator('#heroInfo .hero-title')).toBeVisible();
+});
+
+test('shows token-specific setup error when TMDB rejects token', async ({ page }) => {
   await page.route('https://api.themoviedb.org/3/**', route =>
     route.fulfill({
       status: 401,
       contentType: 'application/json',
-      body: JSON.stringify({ status_message: 'Invalid token' })
+      body: JSON.stringify({ status_message: 'Invalid API token' })
     })
   );
 
   await page.addInitScript(() => {
-    localStorage.setItem('cinova_tmdb_token', 'bad-token');
+    window.CINOVA_CONFIG = { tmdbReadAccessToken: 'bad-token' };
   });
 
   await page.goto(appUrl);
 
   await expect(page.locator('#setupOverlay')).toBeVisible();
-  await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
-  await expect(page.locator('#apiKeyInput')).toHaveValue('bad-token');
+  await expect(page.locator('#setupError')).toContainText('TMDB rejected your token');
 });
 
-test('shows setup error when network fails after entering token', async ({ page }) => {
-  await page.route('https://api.themoviedb.org/3/**', route => route.abort('failed'));
-
-  await page.addInitScript(() => {
-    localStorage.removeItem('cinova_tmdb_token');
-  });
-
-  await page.goto(appUrl);
-  await page.locator('#apiKeyInput').fill('offline-token');
-  await page.locator('#setupSubmitBtn').click();
-
-  await expect(page.locator('#setupOverlay')).toBeVisible();
-  await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
-  await expect(page.locator('#apiKeyInput')).toHaveValue('offline-token');
-  await expect(page.locator('#setupRetryBtn')).toBeVisible();
-});
-
-test('shows setup error when tmdb requests time out', async ({ page }) => {
-  await page.route('https://api.themoviedb.org/3/**', async route => {
-    await new Promise(resolve => setTimeout(resolve, 250));
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ genres: [] })
-    });
-  });
-
-  await page.addInitScript(() => {
-    localStorage.removeItem('cinova_tmdb_token');
-    window.__TMDB_TIMEOUT_MS__ = 50;
-  });
-
-  await page.goto(appUrl);
-  await page.locator('#apiKeyInput').fill('slow-token');
-  await page.locator('#setupSubmitBtn').click();
-
-  await expect(page.locator('#setupOverlay')).toBeVisible();
-  await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
-  await expect(page.locator('#apiKeyInput')).toHaveValue('slow-token');
-  await expect(page.locator('#setupRetryBtn')).toBeVisible();
-});
-
-test('retries setup successfully after a transient failure', async ({ page }) => {
-  let hasFailedMovieGenre = false;
-
+test('retry setup reloads updated config token and recovers', async ({ page }) => {
   await page.route('https://api.themoviedb.org/3/**', route => {
-    const url = new URL(route.request().url());
+    const request = route.request();
+    const authHeader = request.headers().authorization || '';
+    const url = new URL(request.url());
     const apiPath = url.pathname;
 
-    if (apiPath.endsWith('/genre/movie/list') && !hasFailedMovieGenre) {
-      hasFailedMovieGenre = true;
+    if (!authHeader.includes('good-token')) {
       return route.fulfill({
-        status: 503,
+        status: 401,
         contentType: 'application/json',
-        body: JSON.stringify({ status_message: 'Service unavailable' })
+        body: JSON.stringify({ status_message: 'Invalid API token' })
       });
     }
 
     if (apiPath.endsWith('/genre/movie/list')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ genres: [{ id: 28, name: 'Action' }] })
-      });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ genres: [{ id: 28, name: 'Action' }] }) });
     }
-
     if (apiPath.endsWith('/genre/tv/list')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ genres: [{ id: 18, name: 'Drama' }] })
-      });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ genres: [{ id: 18, name: 'Drama' }] }) });
     }
-
     if (apiPath.includes('/trending/')) {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ results: [{ id: 1, title: 'Movie 1', overview: 'Overview', vote_average: 7.5, backdrop_path: '/hero.jpg', genre_ids: [28], release_date: '2025-01-01' }] })
+        body: JSON.stringify({ results: [{ id: 1, title: 'Recovered Hero', overview: 'Overview', vote_average: 7.4, backdrop_path: '/hero.jpg', genre_ids: [28], release_date: '2025-01-01' }] })
       });
     }
-
     if (apiPath.match(/\/(movie|tv)\/(now_playing|popular|top_rated|upcoming|airing_today|on_the_air)$/)) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ results: [] })
-      });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [] }) });
     }
 
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({})
-    });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
   });
 
   await page.addInitScript(() => {
-    localStorage.removeItem('cinova_tmdb_token');
+    window.CINOVA_CONFIG = { tmdbReadAccessToken: 'bad-token' };
   });
 
   await page.goto(appUrl);
-  await page.locator('#apiKeyInput').fill('retry-token');
-  await page.locator('#setupSubmitBtn').click();
 
   await expect(page.locator('#setupOverlay')).toBeVisible();
-  await expect(page.locator('#setupRetryBtn')).toBeVisible();
+  await expect(page.locator('#setupError')).toContainText('TMDB rejected your token');
+
+  await page.evaluate(() => {
+    window.CINOVA_CONFIG.tmdbReadAccessToken = 'good-token';
+  });
 
   await page.locator('#setupRetryBtn').click();
-  await expect(page.locator('#setupOverlay')).toBeHidden();
-});
-
-test('automatically recovers from transient tmdb 429 during setup', async ({ page }) => {
-  let movieGenreAttempts = 0;
-
-  await page.route('https://api.themoviedb.org/3/**', route => {
-    const url = new URL(route.request().url());
-    const apiPath = url.pathname;
-
-    if (apiPath.endsWith('/genre/movie/list')) {
-      movieGenreAttempts += 1;
-      if (movieGenreAttempts === 1) {
-        return route.fulfill({
-          status: 429,
-          contentType: 'application/json',
-          headers: { 'Retry-After': '0' },
-          body: JSON.stringify({ status_message: 'Rate limit exceeded' })
-        });
-      }
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ genres: [{ id: 28, name: 'Action' }] })
-      });
-    }
-
-    if (apiPath.endsWith('/genre/tv/list')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ genres: [{ id: 18, name: 'Drama' }] })
-      });
-    }
-
-    if (apiPath.includes('/trending/')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ results: [{ id: 1, title: 'Movie 1', overview: 'Overview', vote_average: 7.5, backdrop_path: '/hero.jpg', genre_ids: [28], release_date: '2025-01-01' }] })
-      });
-    }
-
-    if (apiPath.match(/\/(movie|tv)\/(now_playing|popular|top_rated|upcoming|airing_today|on_the_air)$/)) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ results: [] })
-      });
-    }
-
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({})
-    });
-  });
-
-  await page.addInitScript(() => {
-    localStorage.removeItem('cinova_tmdb_token');
-    window.__TMDB_RETRY_DELAY_MS__ = 10;
-  });
-
-  await page.goto(appUrl);
-  await page.locator('#apiKeyInput').fill('rate-limit-token');
-  await page.locator('#setupSubmitBtn').click();
 
   await expect(page.locator('#setupOverlay')).toBeHidden();
-});
-
-test('shows setup error when tmdb 429 retries are exhausted', async ({ page }) => {
-  await page.route('https://api.themoviedb.org/3/**', route => {
-    const url = new URL(route.request().url());
-    const apiPath = url.pathname;
-
-    if (apiPath.endsWith('/genre/movie/list')) {
-      return route.fulfill({
-        status: 429,
-        contentType: 'application/json',
-        headers: { 'Retry-After': '0' },
-        body: JSON.stringify({ status_message: 'Rate limit exceeded' })
-      });
-    }
-
-    if (apiPath.endsWith('/genre/tv/list')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ genres: [{ id: 18, name: 'Drama' }] })
-      });
-    }
-
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({})
-    });
-  });
-
-  await page.addInitScript(() => {
-    localStorage.removeItem('cinova_tmdb_token');
-    window.__TMDB_MAX_RETRIES__ = 1;
-    window.__TMDB_RETRY_DELAY_MS__ = 10;
-  });
-
-  await page.goto(appUrl);
-  await page.locator('#apiKeyInput').fill('rate-limit-fail-token');
-  await page.locator('#setupSubmitBtn').click();
-
-  await expect(page.locator('#setupOverlay')).toBeVisible();
-  await expect(page.locator('#setupError')).toHaveText('Could not connect to TMDB. Check your token and internet connection.');
-  await expect(page.locator('#setupRetryBtn')).toBeVisible();
+  await expect(page.locator('#heroInfo .hero-title')).toContainText('Recovered Hero');
 });
 
 test('ignores corrupted watchlist storage and still initializes', async ({ page }) => {
@@ -266,7 +110,7 @@ test('ignores corrupted watchlist storage and still initializes', async ({ page 
 
   await mockTmdb(page);
   await page.addInitScript(() => {
-    localStorage.setItem('cinova_tmdb_token', 'test-token');
+    window.CINOVA_CONFIG = { tmdbReadAccessToken: 'test-token' };
     localStorage.setItem('cinova_watchlist', '{"broken":');
   });
 
@@ -276,4 +120,3 @@ test('ignores corrupted watchlist storage and still initializes', async ({ page 
   await expect(page.locator('#watchlistCount')).toHaveText('0');
   expect(pageErrors).toEqual([]);
 });
-

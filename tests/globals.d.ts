@@ -4,6 +4,11 @@ declare global {
     __TMDB_RETRY_DELAY_MS__?: number;
     __TMDB_TIMEOUT_MS__?: number;
     __xssFlag?: number;
+    CINOVA_CONFIG?: {
+      tmdbReadAccessToken?: string;
+      tmdb_token?: string;
+      token?: string;
+    };
     executeSearch?: () => void;
   }
 }

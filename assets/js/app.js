@@ -68,18 +68,56 @@
 			return normalized;
 		}
 
-		let API_TOKEN = getStorageItem('cinova_tmdb_token', getStorageItem('screenscout_token', ''));
+		const STORAGE_KEYS = {
+			token: 'cinova_tmdb_token',
+			tokenLegacy: 'screenscout_token',
+			watchlist: 'cinova_watchlist',
+			watchlistLegacy: 'screenscout_watchlist'
+		};
+		const RUNTIME_TOKEN_KEYS = ['tmdbReadAccessToken', 'tmdb_token', 'token'];
+
+		function normalizeToken(rawValue) {
+			if (typeof rawValue !== 'string') return '';
+			const trimmed = rawValue.trim();
+			return trimmed.length > 0 ? trimmed : '';
+		}
+
+		function getRuntimeConfigToken() {
+			const config = globalThis.CINOVA_CONFIG;
+			if (!config || typeof config !== 'object') return '';
+			for (const key of RUNTIME_TOKEN_KEYS) {
+				const token = normalizeToken(config[key]);
+				if (token) return token;
+			}
+			return '';
+		}
+
+		function getStoredToken() {
+			const token = normalizeToken(getStorageItem(STORAGE_KEYS.token, getStorageItem(STORAGE_KEYS.tokenLegacy, '')));
+			if (token && !getStorageItem(STORAGE_KEYS.token, '')) {
+				setStorageItem(STORAGE_KEYS.token, token);
+			}
+			return token;
+		}
+
+		function resolveApiToken() {
+			const runtimeToken = getRuntimeConfigToken();
+			if (runtimeToken) {
+				setStorageItem(STORAGE_KEYS.token, runtimeToken);
+				return runtimeToken;
+			}
+			return getStoredToken();
+		}
+
+		let API_TOKEN = resolveApiToken();
 		let currentType = 'movie'; // 'movie' or 'tv'
 		let currentPage = 1;
 		let currentQuery = '';
 		let searchTotalPages = 1;
-		let watchlist = parseStoredWatchlist(getStorageItem('cinova_watchlist', getStorageItem('screenscout_watchlist', '[]')));
+		let watchlist = parseStoredWatchlist(getStorageItem(STORAGE_KEYS.watchlist, getStorageItem(STORAGE_KEYS.watchlistLegacy, '[]')));
 		let genreMap = {};
-		if (API_TOKEN && !getStorageItem('cinova_tmdb_token', '')) {
-			setStorageItem('cinova_tmdb_token', API_TOKEN);
-		}
-		if (!getStorageItem('cinova_watchlist', '') && watchlist.length > 0) {
-			setStorageItem('cinova_watchlist', JSON.stringify(watchlist));
+		if (!getStorageItem(STORAGE_KEYS.watchlist, '') && watchlist.length > 0) {
+			setStorageItem(STORAGE_KEYS.watchlist, JSON.stringify(watchlist));
 		}
 
 		const IMG_BASE = 'https://image.tmdb.org/t/p/';
@@ -94,9 +132,8 @@
 			? Number(globalThis.__TMDB_RETRY_DELAY_MS__)
 			: 800;
 		const setupErrorEl = document.getElementById('setupError');
-		const setupInputEl = document.getElementById('apiKeyInput');
-		const setupSubmitBtn = document.getElementById('setupSubmitBtn');
 		const setupRetryBtn = document.getElementById('setupRetryBtn');
+		const setupOverlayEl = document.getElementById('setupOverlay');
 		const mainContentEl = document.getElementById('mainContent');
 		const modalOverlayEl = document.getElementById('modalOverlay');
 		const modalContentEl = document.getElementById('modalContent');
@@ -189,9 +226,6 @@
 				case 'go-page':
 					goToPage(actionEl.dataset.page);
 					break;
-				case 'save-key':
-					saveKey();
-					break;
 				case 'retry-setup':
 					retrySetup();
 					break;
@@ -226,92 +260,83 @@
 					executeSearch();
 				}
 			});
-
-			setupInputEl.addEventListener('keydown', event => {
-				if (event.key === 'Enter') {
-					saveKey();
-				}
-			});
 		}
 
 		function showSetupError(message) {
 			setupErrorEl.textContent = message;
 			setupErrorEl.style.display = 'block';
-			if (API_TOKEN) {
-				setupRetryBtn.style.display = 'block';
-				setupRetryBtn.disabled = false;
-			}
+			setupOverlayEl.style.display = 'flex';
+			setupRetryBtn.disabled = false;
 		}
 
 		function hideSetupError() {
 			setupErrorEl.textContent = '';
 			setupErrorEl.style.display = 'none';
-			setupRetryBtn.style.display = 'none';
-			setupRetryBtn.disabled = true;
 		}
 
 		function setSetupLoading(loading) {
-			setupSubmitBtn.disabled = loading;
-			setupRetryBtn.disabled = loading || !API_TOKEN;
-			setupSubmitBtn.textContent = loading ? 'Connecting...' : 'Start Browsing →';
-			if (setupRetryBtn.style.display !== 'none') {
-				setupRetryBtn.textContent = loading ? 'Retrying...' : 'Retry Connection';
-			}
+			setupRetryBtn.disabled = loading;
+			setupRetryBtn.textContent = loading ? 'Checking Configuration...' : 'Reload Configuration';
 		}
 
-		// ══════════════════════════════════════════
+		// ----------------------------------------
 		// INIT
-		// ══════════════════════════════════════════
+		// ----------------------------------------
 		bindEventListeners();
-		if (API_TOKEN) {
-			init();
-		}
+		init();
 
-		function saveKey() {
-			if (isInitializing) return;
-			const key = document.getElementById('apiKeyInput').value.trim();
-			if (!key) {
-				showSetupError('Please enter your TMDB API token.');
-				return;
+		function getSetupMessageFromError(error) {
+			const message = String(error?.message || '');
+			if (message.includes('TMDB Error: 401')) {
+				return 'TMDB rejected your token. Update config.local.js with a valid TMDB Read Access Token, then reload.';
 			}
-			API_TOKEN = key;
-			setStorageItem('cinova_tmdb_token', key);
-			init();
+			if (message.includes('TMDB Error: 403')) {
+				return 'TMDB access is forbidden for this token. Confirm your TMDB Read Access Token and try again.';
+			}
+			return 'Cinova could not connect to TMDB. Check config.local.js and your internet connection, then reload.';
 		}
 
-		function retrySetup() {
-			if (!API_TOKEN || isInitializing) return;
-			setupInputEl.value = API_TOKEN;
-			init();
+		async function retrySetup() {
+			if (isInitializing) return;
+			API_TOKEN = '';
+			await init({ forceTokenRefresh: true });
 		}
 
-		async function init() {
+		async function init({ forceTokenRefresh = false } = {}) {
 			if (isInitializing) return;
 			isInitializing = true;
 			setSetupLoading(true);
 			hideSetupError();
 			try {
+				if (forceTokenRefresh || !API_TOKEN) {
+					API_TOKEN = resolveApiToken();
+				}
+				if (!API_TOKEN) {
+					showSetupError('No TMDB token found. Create config.local.js from config.example.js, add your token, then click "Reload Configuration".');
+					return;
+				}
 				await loadGenres();
 				loadHero();
 				loadSections();
 				updateWatchlistCount();
-				document.getElementById('setupOverlay').style.display = 'none';
-				setupInputEl.value = '';
-			} catch (e) {
-				console.error('Initialization failed:', e);
-				showSetupError('Could not connect to TMDB. Check your token and internet connection.');
-				document.getElementById('setupOverlay').style.display = 'flex';
-				setupInputEl.value = API_TOKEN;
+				setupOverlayEl.style.display = 'none';
+			} catch (error) {
+				console.error('Initialization failed:', error);
+				showSetupError(getSetupMessageFromError(error));
 			} finally {
 				isInitializing = false;
 				setSetupLoading(false);
 			}
 		}
 
-		// ══════════════════════════════════════════
+		// ----------------------------------------
 		// API HELPER
-		// ══════════════════════════════════════════
+		// ----------------------------------------
 		async function tmdbFetch(endpoint, params = {}) {
+			if (!API_TOKEN) {
+				throw new Error('TMDB token is missing');
+			}
+
 			const url = new URL(`${API_BASE}${endpoint}`);
 			Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
@@ -349,7 +374,17 @@
 					continue;
 				}
 
-				if (!res.ok) throw new Error(`TMDB Error: ${res.status}`);
+				if (!res.ok) {
+					let apiMessage = '';
+					try {
+						const errorPayload = await res.json();
+						apiMessage = typeof errorPayload?.status_message === 'string' ? errorPayload.status_message : '';
+					} catch {
+						apiMessage = '';
+					}
+					const suffix = apiMessage ? ` (${apiMessage})` : '';
+					throw new Error(`TMDB Error: ${res.status}${suffix}`);
+				}
 				return res.json();
 			}
 		}
@@ -380,13 +415,26 @@
 			return `<div class="inline-error"><p>${safeMessage}</p>${retryButton}</div>`;
 		}
 
+		function renderEmptyState(title, message) {
+			return `
+				<div class="empty-state" role="status" aria-live="polite">
+					<h3>${escapeHtml(title)}</h3>
+					<p>${escapeHtml(message)}</p>
+				</div>
+			`;
+		}
+
 		function renderSectionContent(title, results) {
+			const sectionItems = Array.isArray(results) ? results.slice(0, 12) : [];
+			const sectionBody = sectionItems.length
+				? sectionItems.map((item, i) => createCard(item, i)).join('')
+				: renderEmptyState(`No ${title.toLowerCase()} titles yet`, 'Check back in a little while for fresh updates.');
 			return `
 				<div class="section-header">
-					<h2 class="section-title">${escapeHtml(title)} <span>›</span></h2>
+					<h2 class="section-title">${escapeHtml(title)} <span>&rsaquo;</span></h2>
 				</div>
 				<div class="movie-grid">
-					${results.slice(0, 12).map((item, i) => createCard(item, i)).join('')}
+					${sectionBody}
 				</div>
 			`;
 		}
@@ -549,7 +597,9 @@
                             <span class="section-link">${data.total_results} found</span>
                         </div>
                         <div class="movie-grid">
-                            ${filtered.length ? filtered.map((item, i) => createCard(item, i)).join('') : '<p style="color:var(--text-muted); grid-column: 1/-1; text-align:center; padding: 40px;">No results found. Try a different search.</p>'}
+                            ${filtered.length
+								? filtered.map((item, i) => createCard(item, i)).join('')
+								: renderEmptyState('No results found', 'Try a different keyword, or switch between Movies and TV Shows.')}
                         </div>
 						${data.total_pages > 1 ? createPagination(data.page, data.total_pages) : ''}
                     </div>
@@ -765,7 +815,7 @@
 				btn.classList.add('saved');
 				btn.textContent = '♥';
 			}
-			setStorageItem('cinova_watchlist', JSON.stringify(watchlist));
+			setStorageItem(STORAGE_KEYS.watchlist, JSON.stringify(watchlist));
 			updateWatchlistCount();
 		}
 
@@ -781,11 +831,9 @@
 
 			if (watchlist.length === 0) {
 				mainContentEl.innerHTML = `
-                    <div style="text-align:center; padding: 80px 20px;">
-                        <div style="font-size:48px; margin-bottom:16px;">♡</div>
-                        <h2 style="margin-bottom:8px;">Your watchlist is empty</h2>
-                        <p style="color:var(--text-muted);">Click the heart on any movie or show to save it here.</p>
-                    </div>
+                    <div style="margin-top: 32px;">
+						${renderEmptyState('Your watchlist is empty', 'Save a movie or TV show with the heart button to see it here.')}
+					</div>
                 `;
 				setMainBusy(false);
 				return;
@@ -825,7 +873,7 @@
 
 		function removeFromWatchlist(id) {
 			watchlist = watchlist.filter(w => w.id !== id);
-			setStorageItem('cinova_watchlist', JSON.stringify(watchlist));
+			setStorageItem(STORAGE_KEYS.watchlist, JSON.stringify(watchlist));
 			updateWatchlistCount();
 			showWatchlist();
 		}

@@ -1,0 +1,3 @@
+window.CINOVA_CONFIG = {
+  tmdbReadAccessToken: 'PASTE_YOUR_TMDB_READ_ACCESS_TOKEN_HERE'
+};

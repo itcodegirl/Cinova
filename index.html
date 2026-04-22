@@ -18,31 +18,24 @@
 <body>
 	<a class="skip-link" href="#mainContent">Skip to main content</a>
 
-	<!-- ═══ API KEY SETUP ═══ -->
+	<!-- ═══ CONFIG SETUP ═══ -->
 	<div class="setup-overlay" id="setupOverlay">
 		<div class="setup-box">
-			<div class="setup-icon">🎬</div>
-			<h1>Welcome to Cino<em style="color:var(--accent); font-style:italic;">va</em></h1>
-			<p>Discover movies and TV shows powered by TMDB. Enter your free API key to get started.</p>
+			<div class="setup-icon">C</div>
+			<h1>Set up Cino<em style="color:var(--accent); font-style:italic;">va</em></h1>
+			<p>Cinova now uses a local config file for TMDB access instead of pasting tokens in-app.</p>
 			<div class="setup-steps">
-				<p>1️⃣ Go to <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener noreferrer">themoviedb.org/signup</a> and create a
-					free account</p>
-				<p>2️⃣ Visit <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">Settings → API</a> and request an
-					API key</p>
-				<p>3️⃣ Copy your <strong style="color:var(--text-primary)">API Read Access Token</strong> (the long one)</p>
-				<p>4️⃣ Paste it below and start browsing!</p>
+				<p>1. Copy <code>config.example.js</code> to <code>config.local.js</code></p>
+				<p>2. Add your TMDB Read Access Token in <code>window.CINOVA_CONFIG.tmdbReadAccessToken</code></p>
+				<p>3. Reload the app to start browsing</p>
 			</div>
-			<label class="sr-only" for="apiKeyInput">TMDB API Read Access Token</label>
-			<input type="password" id="apiKeyInput" placeholder="Paste your TMDB API Read Access Token...">
 			<div id="setupError" role="alert" aria-live="assertive" style="display:none; margin-top:-4px; margin-bottom: 12px; color: var(--accent); font-size: 13px;"></div>
 			<div class="setup-actions">
-				<button type="button" id="setupSubmitBtn" data-action="save-key">Start Browsing →</button>
-				<button type="button" id="setupRetryBtn" class="setup-retry" style="display:none;" data-action="retry-setup">Retry Connection</button>
+				<button type="button" id="setupRetryBtn" class="setup-retry" data-action="retry-setup">Reload Configuration</button>
 			</div>
 		</div>
 	</div>
-
-	<!-- ═══ NAV ═══ -->
+<!-- ═══ NAV ═══ -->
 	<nav aria-label="Primary">
 		<a class="nav-logo" href="#" id="homeLink" aria-label="Go to home" data-action="go-home">
 			<div class="nav-logo-icon">
@@ -94,7 +87,8 @@
 		<div class="modal" id="modalContent" role="dialog" aria-modal="true" aria-label="Title details" tabindex="-1"></div>
 	</div>
 
-		<script src="assets/js/app.js" defer></script>
+	<script src="config.local.js" data-optional="true"></script>
+	<script src="assets/js/app.js" defer></script>
 </body>
 
 </html>

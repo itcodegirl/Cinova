@@ -3,7 +3,7 @@ const path = require('node:path');
 
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
-const buildItems = ['index.html', 'assets'];
+const buildItems = ['index.html', 'assets', 'config.example.js'];
 
 function cleanDistDirectory() {
   fs.rmSync(distDir, { recursive: true, force: true });

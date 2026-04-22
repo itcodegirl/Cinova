@@ -428,6 +428,27 @@
 			margin-bottom: 12px;
 		}
 
+		.empty-state {
+			grid-column: 1 / -1;
+			background: var(--bg-card);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-lg);
+			padding: 28px 24px;
+			text-align: center;
+		}
+
+		.empty-state h3 {
+			font-size: 20px;
+			margin-bottom: 10px;
+		}
+
+		.empty-state p {
+			color: var(--text-secondary);
+			font-size: 14px;
+			line-height: 1.6;
+			margin: 0;
+		}
+
 		.inline-retry-btn {
 			padding: 8px 14px;
 			border-radius: var(--radius-sm);
@@ -990,7 +1011,7 @@
 			inset: 0;
 			background: var(--bg-deep);
 			z-index: 500;
-			display: flex;
+			display: none;
 			align-items: center;
 			justify-content: center;
 			padding: 24px;
@@ -1025,34 +1046,6 @@
 			font-size: 14px;
 			line-height: 1.7;
 			margin-bottom: 24px;
-		}
-
-		.setup-box p a {
-			color: var(--text-primary);
-			text-decoration: underline;
-			text-underline-offset: 2px;
-		}
-
-		.setup-box p a:hover {
-			color: var(--accent);
-		}
-
-		.setup-box input {
-			width: 100%;
-			padding: 14px 18px;
-			background: var(--bg-input);
-			border: 1px solid var(--border);
-			border-radius: var(--radius-md);
-			color: var(--text-primary);
-			font-family: 'Outfit', sans-serif;
-			font-size: 14px;
-			outline: none;
-			margin-bottom: 16px;
-			transition: var(--transition);
-		}
-
-		.setup-box input:focus {
-			border-color: var(--accent);
 		}
 
 		.setup-box button {
@@ -1112,6 +1105,12 @@
 
 		.setup-steps p:last-child {
 			margin-bottom: 0;
+		}
+
+		.setup-steps code {
+			color: var(--text-primary);
+			font-family: 'Courier New', monospace;
+			font-size: 12px;
 		}
 
 		/* ════════════════════════════════════════
