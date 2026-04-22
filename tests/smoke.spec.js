@@ -53,6 +53,6 @@ test('persists watchlist after reload and allows removing saved item', async ({ 
   await expect(page.locator('h2.section-title:has-text("Watchlist")')).toBeVisible();
 
   await page.locator('.movie-grid .card-watchlist.saved').first().click();
-  await expect(page.getByText('Your watchlist is empty')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your watchlist is empty' })).toBeVisible();
 });
 

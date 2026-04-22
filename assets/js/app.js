@@ -140,6 +140,7 @@
 		const searchFormEl = document.getElementById('searchForm');
 		const searchInputEl = document.getElementById('searchInput');
 		const searchClearBtnEl = document.getElementById('searchClear');
+		const searchStatusEl = document.getElementById('searchStatus');
 		let isInitializing = false;
 		let modalPreviouslyFocusedEl = null;
 
@@ -158,6 +159,11 @@
 
 		function setMainBusy(isBusy) {
 			mainContentEl.setAttribute('aria-busy', String(Boolean(isBusy)));
+		}
+
+		function setSearchStatus(message = '') {
+			if (!searchStatusEl) return;
+			searchStatusEl.textContent = String(message || '');
 		}
 
 		function getFocusableElements(container) {
@@ -260,6 +266,7 @@
 					executeSearch();
 				}
 			});
+
 		}
 
 		function showSetupError(message) {
@@ -267,6 +274,7 @@
 			setupErrorEl.style.display = 'block';
 			setupOverlayEl.style.display = 'flex';
 			setupRetryBtn.disabled = false;
+			setSearchStatus('TMDB setup is required before browsing titles.');
 		}
 
 		function hideSetupError() {
@@ -320,6 +328,7 @@
 				loadSections();
 				updateWatchlistCount();
 				setupOverlayEl.style.display = 'none';
+				setSearchStatus(`Browsing ${currentType === 'movie' ? 'movies' : 'TV shows'}.`);
 			} catch (error) {
 				console.error('Initialization failed:', error);
 				showSetupError(getSetupMessageFromError(error));
@@ -564,6 +573,7 @@
 			}
 			currentQuery = query;
 			currentPage = 1;
+			setSearchStatus(`Searching for ${currentQuery}.`);
 			performSearch();
 		}
 
@@ -574,6 +584,7 @@
 			clearBtn.disabled = true;
 			clearBtn.setAttribute('aria-hidden', 'true');
 			currentQuery = '';
+			setSearchStatus('');
 			goHome();
 		}
 
@@ -589,6 +600,10 @@
 				searchTotalPages = Number.isInteger(data?.total_pages) ? data.total_pages : 1;
 
 				const filtered = data.results.filter(r => r.media_type === 'movie' || r.media_type === 'tv');
+				const totalResults = Number.isFinite(Number(data.total_results)) ? Number(data.total_results) : filtered.length;
+				const resultMessage = filtered.length
+					? `Showing ${filtered.length} of ${totalResults} results for ${currentQuery}.`
+					: `No results found for ${currentQuery}.`;
 
 				mainContentEl.innerHTML = `
                     <div class="section" style="margin-top: 32px;">
@@ -604,6 +619,7 @@
 						${data.total_pages > 1 ? createPagination(data.page, data.total_pages) : ''}
                     </div>
                 `;
+				setSearchStatus(resultMessage);
 			} catch (e) {
 				mainContentEl.innerHTML = `
 					<div class="section" style="margin-top: 32px;">
@@ -613,6 +629,7 @@
 						${renderInlineError(`Search failed: ${e.message}`, 'Retry Search', 'retry-search')}
 					</div>
 				`;
+				setSearchStatus(`Search failed for ${currentQuery}.`);
 			} finally {
 				setMainBusy(false);
 			}
@@ -649,7 +666,7 @@
                             <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                             ${typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : 'N/A'}
                         </div>` : ''}
-                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" data-action="toggle-watchlist" data-id="${item.id}" data-type="${safeType}" data-title="${safeTitle}" data-poster="${escapeHtml(safePosterPath)}" type="button">
+                            <button class="card-watchlist ${isSaved ? 'saved' : ''}" aria-label="${isSaved ? `Remove ${safeTitle} from watchlist` : `Add ${safeTitle} to watchlist`}" aria-pressed="${isSaved ? 'true' : 'false'}" data-action="toggle-watchlist" data-id="${item.id}" data-type="${safeType}" data-title="${safeTitle}" data-poster="${escapeHtml(safePosterPath)}" type="button">
                             ${isSaved ? '♥' : '♡'}
                         </button>
                     </div>
@@ -701,7 +718,11 @@
 			const mediaType = type === 'tv' ? 'tv' : 'movie';
 			modalPreviouslyFocusedEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 			modalOverlayEl.classList.add('open');
+			modalOverlayEl.setAttribute('aria-hidden', 'false');
 			document.body.style.overflow = 'hidden';
+			modalContentEl.setAttribute('aria-busy', 'true');
+			modalContentEl.removeAttribute('aria-labelledby');
+			modalContentEl.removeAttribute('aria-describedby');
 			modalContentEl.setAttribute('aria-label', 'Loading title details');
 			modalContentEl.innerHTML = `<div style="padding:60px; text-align:center; color:var(--text-muted)">Loading...</div>`;
 			modalContentEl.focus();
@@ -732,14 +753,17 @@
 					? `<img src="${backdropUrl}" alt="${title}">`
 					: `<div style="height:100%; background: var(--bg-card);"></div>`;
 
-				modalContentEl.setAttribute('aria-label', `${rawTitle} details`);
+				modalContentEl.setAttribute('aria-busy', 'false');
+				modalContentEl.removeAttribute('aria-label');
+				modalContentEl.setAttribute('aria-labelledby', 'modalTitle');
+				modalContentEl.setAttribute('aria-describedby', 'modalOverview');
 				modalContentEl.innerHTML = `
                     <div class="modal-backdrop">
                         ${backdropImg}
                         <button class="modal-close" aria-label="Close details modal" data-action="close-modal" type="button">X</button>
                     </div>
                     <div class="modal-body">
-                        <h1 class="modal-title">${title}</h1>
+                        <h1 class="modal-title" id="modalTitle">${title}</h1>
                         <div class="modal-meta">
                             ${detail.vote_average ? `
                             <span class="modal-rating">
@@ -751,7 +775,7 @@
                             ${seasons ? `<span class="modal-tag">${escapeHtml(seasons)}</span>` : ''}
                             ${genres}
                         </div>
-                        <p class="modal-overview">${escapeHtml(detail.overview || 'No overview available.')}</p>
+                        <p class="modal-overview" id="modalOverview">${escapeHtml(detail.overview || 'No overview available.')}</p>
 
                         ${cast.length ? `
                         <h3 class="modal-section-title">Cast</h3>
@@ -786,6 +810,9 @@
                 `;
 				focusModalContent();
 			} catch (e) {
+				modalContentEl.setAttribute('aria-busy', 'false');
+				modalContentEl.removeAttribute('aria-labelledby');
+				modalContentEl.removeAttribute('aria-describedby');
 				modalContentEl.setAttribute('aria-label', 'Error loading title details');
 				modalContentEl.innerHTML = `<div style="padding:40px; text-align:center;"><p style="color:var(--accent); margin-bottom:12px;">Failed to load details</p><p style="color:var(--text-muted); font-size:13px;">${escapeHtml(e.message)}</p><button class="modal-close" aria-label="Close details modal" data-action="close-modal" type="button" style="position:relative; margin-top:16px;">X Close</button></div>`;
 				focusModalContent();
@@ -794,6 +821,7 @@
 
 		function closeModal() {
 			modalOverlayEl.classList.remove('open');
+			modalOverlayEl.setAttribute('aria-hidden', 'true');
 			document.body.style.overflow = '';
 			if (modalPreviouslyFocusedEl && document.contains(modalPreviouslyFocusedEl)) {
 				modalPreviouslyFocusedEl.focus();
@@ -805,15 +833,20 @@
 		// ══════════════════════════════════════════
 		function toggleWatchlist(id, type, title, poster, btn) {
 			const normalizedType = type === 'tv' ? 'tv' : 'movie';
+			const labelTitle = String(title || 'this title').trim() || 'this title';
 			const idx = watchlist.findIndex(w => w.id === id);
 			if (idx > -1) {
 				watchlist.splice(idx, 1);
 				btn.classList.remove('saved');
-				btn.textContent = '♡';
+				btn.innerHTML = '&#9825;';
+				btn.setAttribute('aria-pressed', 'false');
+				btn.setAttribute('aria-label', `Add ${labelTitle} to watchlist`);
 			} else {
 				watchlist.push({ id, type: normalizedType, title: String(title || ''), poster: getSafeTmdbPath(poster) });
 				btn.classList.add('saved');
-				btn.textContent = '♥';
+				btn.innerHTML = '&#9829;';
+				btn.setAttribute('aria-pressed', 'true');
+				btn.setAttribute('aria-label', `Remove ${labelTitle} from watchlist`);
 			}
 			setStorageItem(STORAGE_KEYS.watchlist, JSON.stringify(watchlist));
 			updateWatchlistCount();
@@ -835,6 +868,7 @@
 						${renderEmptyState('Your watchlist is empty', 'Save a movie or TV show with the heart button to see it here.')}
 					</div>
                 `;
+				setSearchStatus('Your watchlist is empty.');
 				setMainBusy(false);
 				return;
 			}
@@ -855,7 +889,7 @@
 					? `<img src="${itemPosterUrl}" alt="${escapeHtml(item.title)}" loading="lazy">`
 					: `<div class="no-poster">🎬</div>`
 				}
-                                    <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" data-action="remove-watchlist" data-id="${item.id}" type="button">♥</button>
+                                    <button class="card-watchlist saved" aria-label="Remove ${escapeHtml(item.title)} from watchlist" aria-pressed="true" data-action="remove-watchlist" data-id="${item.id}" type="button">&#9829;</button>
                                 </div>
                                 <div class="card-info">
                                     <div class="card-title">${escapeHtml(item.title)}</div>
@@ -868,6 +902,7 @@
                     </div>
                 </div>
             `;
+			setSearchStatus(`Showing ${watchlist.length} watchlist item${watchlist.length === 1 ? '' : 's'}.`);
 			setMainBusy(false);
 		}
 
@@ -947,6 +982,7 @@
 			currentPage = 1;
 			loadHero();
 			loadSections();
+			setSearchStatus(`Browsing ${currentType === 'movie' ? 'movies' : 'TV shows'}.`);
 		}
 
 		// Close modal on ESC

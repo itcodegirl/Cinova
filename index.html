@@ -55,7 +55,7 @@
 					<line x1="21" y1="21" x2="16.65" y2="16.65" />
 				</svg>
 				<label class="sr-only" for="searchInput">Search movies and TV shows</label>
-				<input type="text" id="searchInput" placeholder="Search movies & TV shows..." aria-label="Search movies and TV shows">
+				<input type="text" id="searchInput" placeholder="Search movies & TV shows..." aria-label="Search movies and TV shows" aria-controls="mainContent">
 				<button class="search-clear" id="searchClear" type="button" aria-label="Clear search" aria-hidden="true" disabled data-action="clear-search">✕</button>
 			</form>
 		</div>
@@ -80,10 +80,11 @@
 	</section>
 
 	<!-- ═══ MAIN ═══ -->
+	<p id="searchStatus" class="sr-only" aria-live="polite" aria-atomic="true"></p>
 	<main id="mainContent" aria-live="polite" aria-busy="false"></main>
 
 	<!-- ═══ MODAL ═══ -->
-	<div class="modal-overlay" id="modalOverlay">
+	<div class="modal-overlay" id="modalOverlay" aria-hidden="true">
 		<div class="modal" id="modalContent" role="dialog" aria-modal="true" aria-label="Title details" tabindex="-1"></div>
 	</div>
 
